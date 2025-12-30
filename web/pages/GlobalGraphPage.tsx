@@ -48,13 +48,23 @@ export default function GlobalGraphPage() {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const data = await getGlobalGraph(similarityThreshold, useEmbeddings);
+      const data = await getGlobalGraph({
+        similarityThreshold,
+        useEmbeddings
+      });
+
+      const meta = {
+        total_papers: data.meta?.total_papers ?? data.nodes.length,
+        total_edges: data.meta?.total_edges ?? data.edges.length,
+        similarity_threshold: data.meta?.similarity_threshold ?? similarityThreshold,
+        used_embeddings: data.meta?.used_embeddings ?? useEmbeddings,
+      };
       setState({
         nodes: data.nodes,
         edges: data.edges,
         loading: false,
         error: null,
-        meta: data.meta
+        meta
       });
     } catch (err) {
       setState(prev => ({

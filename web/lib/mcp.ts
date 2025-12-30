@@ -12,6 +12,7 @@ const MCP_BASE_URL = '/api';
 export interface GraphNode {
   id: string;
   title: string;
+  paper_id?: string;
   authors?: string[];
   abstract?: string;
   year?: number;
@@ -88,10 +89,16 @@ export async function executeTool(
 /**
  * Get global graph data (Graph B)
  */
+export interface GlobalGraphOptions {
+  similarityThreshold?: number;
+  useEmbeddings?: boolean;
+}
+
 export async function getGlobalGraph(
-  similarityThreshold: number = 0.7,
-  useEmbeddings: boolean = true
+  options: GlobalGraphOptions = {}
 ): Promise<GraphData> {
+  const { similarityThreshold = 0.7, useEmbeddings = true } = options;
+
   const result = await executeTool('build_global_graph', {
     similarity_threshold: similarityThreshold,
     use_embeddings: useEmbeddings
@@ -99,24 +106,6 @@ export async function getGlobalGraph(
 
   if (!result.success) {
     throw new Error(result.error || 'Failed to build global graph');
-  }
-
-  return result.result;
-}
-
-/**
- * Rebuild global graph with new parameters
- */
-export async function rebuildGlobalGraph(
-  similarityThreshold: number = 0.7
-): Promise<GraphData> {
-  const result = await executeTool('build_global_graph', {
-    similarity_threshold: similarityThreshold,
-    use_embeddings: true
-  });
-
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to rebuild global graph');
   }
 
   return result.result;

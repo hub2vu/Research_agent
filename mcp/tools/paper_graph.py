@@ -284,6 +284,31 @@ class BuildGlobalGraphTool(MCPTool):
     @property
     def category(self) -> str: return "paper_graph"
 
+    def _load_paper_metadata(self, output_folder: Path) -> Dict[str, Any]:
+        """Load title/author/year metadata from known files inside a paper folder."""
+
+        metadata_paths = [
+            output_folder / "metadata.json",
+            output_folder / "paper_metadata.json",
+            output_folder / "meta.json",
+        ]
+
+        info: Dict[str, Any] = {"title": None, "authors": None, "year": None}
+        for meta_path in metadata_paths:
+            if not meta_path.exists():
+                continue
+            try:
+                with open(meta_path) as f:
+                    data = json.load(f)
+                info["title"] = data.get("title") or data.get("paper_title")
+                info["authors"] = data.get("authors") or data.get("author")
+                info["year"] = data.get("year") or data.get("published") or data.get("publish_year")
+                break
+            except Exception:
+                continue
+
+        return info
+
     async def execute(self, similarity_threshold: float = 0.7, use_embeddings: bool = True) -> Dict[str, Any]:
         G = nx.Graph()
         papers = []
@@ -294,15 +319,42 @@ class BuildGlobalGraphTool(MCPTool):
                     text = ""
                     if txt_file.exists():
                         try:
-                            with open(txt_file) as f: text = " ".join(p.get("text","")[:500] for p in json.load(f).get("pages",[])[:3])
-                        except: pass
-                    papers.append({"id": output_folder.name, "text": text})
+                            with open(txt_file) as f:
+                                text = " ".join(
+                                    p.get("text", "")[:500]
+                                    for p in json.load(f).get("pages", [])[:3]
+                                )
+                        except Exception:
+                            pass
 
-        nodes = [{"id": p["id"], "title": p["id"], "cluster": 0} for p in papers]
-        for n in nodes: G.add_node(n["id"], **n)
-        
+                    meta = self._load_paper_metadata(output_folder)
+                    authors = meta.get("authors") or []
+                    if isinstance(authors, str):
+                        authors = [authors]
+                    papers.append({
+                        "id": output_folder.name,
+                        "text": text,
+                        "title": meta.get("title") or output_folder.name,
+                        "authors": authors,
+                        "year": meta.get("year"),
+                    })
+
+        nodes = [
+            {
+                "id": p["id"],
+                "title": p["title"],
+                "cluster": 0,
+                "authors": p.get("authors") or [],
+                "year": p.get("year"),
+            }
+            for p in papers
+        ]
+        for n in nodes:
+            G.add_node(n["id"], **n)
+
         edges = []
         # Similarity
+        embeddings_used = False
         if use_embeddings and HAS_SENTENCE_TRANSFORMERS and len(papers) > 1:
             try:
                 model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -310,11 +362,18 @@ class BuildGlobalGraphTool(MCPTool):
                 from sklearn.metrics.pairwise import cosine_similarity
                 sims = cosine_similarity(vecs)
                 for i in range(len(papers)):
-                    for j in range(i+1, len(papers)):
+                    for j in range(i + 1, len(papers)):
                         if sims[i][j] >= similarity_threshold and papers[i]["text"] and papers[j]["text"]:
-                            edges.append({"source": papers[i]["id"], "target": papers[j]["id"], "weight": float(sims[i][j]), "type": "similarity"})
-            except: pass
-            
+                            edges.append({
+                                "source": papers[i]["id"],
+                                "target": papers[j]["id"],
+                                "weight": float(sims[i][j]),
+                                "type": "similarity"
+                            })
+                embeddings_used = True
+            except Exception:
+                pass
+
         # Reference Fallback
         for p in papers:
             # 안전하게 폴더 내의 _refs.json 찾기
@@ -325,7 +384,7 @@ class BuildGlobalGraphTool(MCPTool):
                     if f.name.endswith("refs.json") and safe_id in f.name:
                         ref_file = f
                         break
-            
+
             if ref_file:
                 try:
                     with open(ref_file) as f:
@@ -335,14 +394,25 @@ class BuildGlobalGraphTool(MCPTool):
                                 rid = rid.replace("/", "_")
                                 if any(x["id"] == rid for x in papers):
                                     edges.append({"source": p["id"], "target": rid, "weight": 1.0, "type": "references"})
-                except: pass
+                except Exception:
+                    pass
 
-        graph_data = {"nodes": nodes, "edges": edges, "meta": {}}
-        with open(GRAPH_DIR / "global_graph.json", "w") as f: json.dump(graph_data, f)
-        
+        meta = {
+            "total_papers": len(nodes),
+            "total_edges": len(edges),
+            "similarity_threshold": similarity_threshold,
+            "used_embeddings": embeddings_used,
+            "titles": {n["id"]: n.get("title") for n in nodes},
+        }
+
+        graph_data = {"nodes": nodes, "edges": edges, "meta": meta}
+        with open(GRAPH_DIR / "global_graph.json", "w") as f:
+            json.dump(graph_data, f, ensure_ascii=False, indent=2)
+
         try:
             with open(UI_STATE_FILE, "w") as f:
                 json.dump({"timestamp": time.time(), "mode": "global", "message": "Global graph rebuilt"}, f)
-        except: pass
-        
+        except Exception:
+            pass
+
         return graph_data
