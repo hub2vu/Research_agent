@@ -17,7 +17,8 @@ import fitz  # PyMuPDF
 from ..base import MCPTool, ToolParameter, ExecutionError
 
 # Configuration from environment
-PDF_DIR = Path(os.getenv("PDF_DIR", "/data/pdf"))
+_DEFAULT_BASE = Path(__file__).resolve().parents[2]
+PDF_DIR = Path(os.getenv("PDF_DIR", _DEFAULT_BASE / "pdf"))
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 
 # Ensure directories exist
@@ -422,7 +423,7 @@ class ExtractImagesTool(MCPTool):
 
 
 class ExtractAllTool(MCPTool):
-    """Extract both text and images from a PDF file."""
+    """Extract text, images, and references from a PDF file."""
 
     @property
     def name(self) -> str:
@@ -430,7 +431,7 @@ class ExtractAllTool(MCPTool):
 
     @property
     def description(self) -> str:
-        return "Extract both text and images from a PDF, saving results to output directory"
+        return "Extract text, images, and references from a PDF, saving results to output directory"
 
     @property
     def parameters(self) -> List[ToolParameter]:
@@ -506,7 +507,7 @@ class ProcessAllPDFsTool(MCPTool):
 
     @property
     def description(self) -> str:
-        return "Process all PDF files in the directory, extracting text and images from each"
+        return "Process all PDF files in the directory, extracting text, images, and references from each"
 
     @property
     def category(self) -> str:
