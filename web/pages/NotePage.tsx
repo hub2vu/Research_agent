@@ -122,9 +122,6 @@ export default function NotePage(props: { noteId?: string } = {}) {
   const [translatingNoteId, setTranslatingNoteId] = useState<string | null>(null);
   const [analyzingNoteId, setAnalyzingNoteId] = useState<string | null>(null);
 
-  // Edit mode tracking per note (notes not in this set show rendered markdown)
-  const [editingNoteIds, setEditingNoteIds] = useState<Set<string>>(new Set());
-
   // Load notes from localStorage
   useEffect(() => {
     try {
@@ -745,61 +742,35 @@ ${extractedText.slice(0, 15000)}`;
               {/* Note content (collapsible) */}
               {note.isOpen && (
                 <div style={{ padding: 10 }}>
-                  {editingNoteIds.has(note.id) || !note.content.trim() ? (
-                    <div>
-                      <textarea
-                        value={note.content}
-                        onChange={(e) => updateNoteContent(note.id, e.target.value)}
-                        placeholder="마크다운으로 내용을 작성하세요..."
-                        style={{
-                          width: '100%',
-                          minHeight: 120,
-                          resize: 'vertical',
-                          borderRadius: 6,
-                          border: '1px solid #e2e8f0',
-                          padding: 10,
-                          fontSize: 13,
-                          lineHeight: 1.6,
-                          outline: 'none',
-                          fontFamily: 'monospace',
-                        }}
-                      />
-                      {note.content.trim() && (
-                        <button
-                          onClick={() => setEditingNoteIds(prev => {
-                            const next = new Set(prev);
-                            next.delete(note.id);
-                            return next;
-                          })}
-                          style={{
-                            marginTop: 6,
-                            padding: '4px 10px',
-                            borderRadius: 4,
-                            border: '1px solid #e2e8f0',
-                            backgroundColor: '#f0fff4',
-                            color: '#276749',
-                            cursor: 'pointer',
-                            fontSize: 11,
-                            fontWeight: 600,
-                          }}
-                        >
-                          Preview
-                        </button>
-                      )}
-                    </div>
-                  ) : (
+                  <textarea
+                    value={note.content}
+                    onChange={(e) => updateNoteContent(note.id, e.target.value)}
+                    placeholder="마크다운으로 내용을 작성하세요..."
+                    style={{
+                      width: '100%',
+                      minHeight: 80,
+                      resize: 'vertical',
+                      borderRadius: 6,
+                      border: '1px solid #e2e8f0',
+                      padding: 10,
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                      outline: 'none',
+                      fontFamily: 'monospace',
+                    }}
+                  />
+                  {note.content.trim() && (
                     <div
-                      onClick={() => setEditingNoteIds(prev => new Set(prev).add(note.id))}
                       className="markdown-preview"
                       style={{
-                        minHeight: 60,
+                        marginTop: 8,
                         padding: 10,
                         borderRadius: 6,
                         border: '1px solid #e2e8f0',
+                        backgroundColor: '#fafafa',
                         fontSize: 13,
                         lineHeight: 1.7,
-                        cursor: 'text',
-                        backgroundColor: '#fafafa',
+                        minHeight: 40,
                       }}
                       dangerouslySetInnerHTML={{ __html: marked.parse(note.content) as string }}
                     />
