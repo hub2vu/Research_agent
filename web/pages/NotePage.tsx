@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import workerSrc from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { executeTool } from '../lib/mcp';
+import { marked } from 'marked';
+
+// Configure marked for note rendering
+marked.setOptions({ breaks: true, gfm: true });
 
 // Vite 호환 worker 설정
 GlobalWorkerOptions.workerSrc = workerSrc;
@@ -117,6 +121,9 @@ export default function NotePage(props: { noteId?: string } = {}) {
   const [extracting, setExtracting] = useState(false);
   const [translatingNoteId, setTranslatingNoteId] = useState<string | null>(null);
   const [analyzingNoteId, setAnalyzingNoteId] = useState<string | null>(null);
+
+  // Edit mode tracking per note (notes not in this set show rendered markdown)
+  const [editingNoteIds, setEditingNoteIds] = useState<Set<string>>(new Set());
 
   // Load notes from localStorage
   useEffect(() => {
@@ -438,6 +445,25 @@ ${extractedText.slice(0, 15000)}`;
 
   return (
     <div ref={containerRef} style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
+      <style>{`
+        .markdown-preview h1 { font-size: 1.4em; font-weight: 700; margin: 12px 0 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .markdown-preview h2 { font-size: 1.2em; font-weight: 700; margin: 10px 0 6px; }
+        .markdown-preview h3 { font-size: 1.1em; font-weight: 600; margin: 8px 0 4px; }
+        .markdown-preview p { margin: 6px 0; }
+        .markdown-preview strong { font-weight: 700; }
+        .markdown-preview em { font-style: italic; }
+        .markdown-preview ul, .markdown-preview ol { margin: 6px 0; padding-left: 20px; }
+        .markdown-preview li { margin: 3px 0; }
+        .markdown-preview code { background: #edf2f7; padding: 1px 4px; border-radius: 3px; font-size: 0.9em; font-family: monospace; }
+        .markdown-preview pre { background: #1a202c; color: #e2e8f0; padding: 10px 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0; }
+        .markdown-preview pre code { background: none; padding: 0; color: inherit; }
+        .markdown-preview blockquote { border-left: 3px solid #cbd5e0; padding-left: 12px; margin: 8px 0; color: #4a5568; }
+        .markdown-preview hr { border: none; border-top: 1px solid #e2e8f0; margin: 12px 0; }
+        .markdown-preview a { color: #3182ce; text-decoration: underline; }
+        .markdown-preview table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+        .markdown-preview th, .markdown-preview td { border: 1px solid #e2e8f0; padding: 6px 10px; font-size: 12px; }
+        .markdown-preview th { background: #f7fafc; font-weight: 600; }
+      `}</style>
       {/* Left: PDF paper view */}
       <div style={{ width: `${panelRatio * 100}%`, display: 'flex', flexDirection: 'column', minWidth: 300 }}>
         <header
@@ -719,23 +745,65 @@ ${extractedText.slice(0, 15000)}`;
               {/* Note content (collapsible) */}
               {note.isOpen && (
                 <div style={{ padding: 10 }}>
-                  <textarea
-                    value={note.content}
-                    onChange={(e) => updateNoteContent(note.id, e.target.value)}
-                    placeholder="여기에 내용을 작성하세요..."
-                    style={{
-                      width: '100%',
-                      minHeight: 100,
-                      resize: 'vertical',
-                      borderRadius: 6,
-                      border: '1px solid #e2e8f0',
-                      padding: 10,
-                      fontSize: 13,
-                      lineHeight: 1.6,
-                      outline: 'none',
-                      fontFamily: 'inherit',
-                    }}
-                  />
+                  {editingNoteIds.has(note.id) || !note.content.trim() ? (
+                    <div>
+                      <textarea
+                        value={note.content}
+                        onChange={(e) => updateNoteContent(note.id, e.target.value)}
+                        placeholder="마크다운으로 내용을 작성하세요..."
+                        style={{
+                          width: '100%',
+                          minHeight: 120,
+                          resize: 'vertical',
+                          borderRadius: 6,
+                          border: '1px solid #e2e8f0',
+                          padding: 10,
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          outline: 'none',
+                          fontFamily: 'monospace',
+                        }}
+                      />
+                      {note.content.trim() && (
+                        <button
+                          onClick={() => setEditingNoteIds(prev => {
+                            const next = new Set(prev);
+                            next.delete(note.id);
+                            return next;
+                          })}
+                          style={{
+                            marginTop: 6,
+                            padding: '4px 10px',
+                            borderRadius: 4,
+                            border: '1px solid #e2e8f0',
+                            backgroundColor: '#f0fff4',
+                            color: '#276749',
+                            cursor: 'pointer',
+                            fontSize: 11,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Preview
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => setEditingNoteIds(prev => new Set(prev).add(note.id))}
+                      className="markdown-preview"
+                      style={{
+                        minHeight: 60,
+                        padding: 10,
+                        borderRadius: 6,
+                        border: '1px solid #e2e8f0',
+                        fontSize: 13,
+                        lineHeight: 1.7,
+                        cursor: 'text',
+                        backgroundColor: '#fafafa',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: marked.parse(note.content) as string }}
+                    />
+                  )}
                 </div>
               )}
             </div>
