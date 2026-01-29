@@ -36,14 +36,30 @@ interface NotePages {
   qa?: string;          // QA 결과 (히스토리)
 }
 
+interface OpenPages {
+  manual: boolean;
+  translation: boolean;
+  analysis: boolean;
+  qa: boolean;
+}
+
 interface NoteItem {
   id: string;
   title: string;
   pages: NotePages;     // content → pages로 변경
-  activePage: NotePageType;  // 현재 보이는 페이지
+  activePage: NotePageType;  // 현재 보이는 페이지 (하위 호환성 유지)
+  openPages: OpenPages;  // 각 섹션별 토글 상태
   isOpen: boolean;
   sectionBoundary?: SectionBoundary;
 }
+
+// 기본 openPages 상태: 메모만 열림
+const defaultOpenPages: OpenPages = {
+  manual: true,
+  translation: false,
+  analysis: false,
+  qa: false,
+};
 
 // 기존 content 형식과의 호환을 위한 마이그레이션 헬퍼
 function migrateNoteItem(note: any): NoteItem {
@@ -58,6 +74,7 @@ function migrateNoteItem(note: any): NoteItem {
         qa: note.pages.qa,
       },
       activePage: note.activePage || 'manual',
+      openPages: note.openPages || { ...defaultOpenPages },
     };
   }
   // 구 형식(content)인 경우 마이그레이션
@@ -68,6 +85,7 @@ function migrateNoteItem(note: any): NoteItem {
       manual: note.content || '',
     },
     activePage: 'manual',
+    openPages: { ...defaultOpenPages },
     isOpen: note.isOpen !== undefined ? note.isOpen : true,
     sectionBoundary: note.sectionBoundary,
   };
@@ -160,20 +178,25 @@ export default function NotePage(props: { noteId?: string } = {}) {
   const notesStorageKey = useMemo(() => `notes:${usedId || stripPrefixes(paperId)}`, [usedId, paperId]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
 
-  // Edit mode state: tracks which notes are in edit mode (default: preview)
-  const [editingNoteIds, setEditingNoteIds] = useState<Set<string>>(new Set());
+  // Edit mode state: tracks which sections are in edit mode (format: "noteId_sectionType")
+  const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
 
-  const toggleEditMode = useCallback((noteId: string) => {
-    setEditingNoteIds(prev => {
+  const toggleSectionEditMode = useCallback((noteId: string, sectionType: NotePageType) => {
+    const key = `${noteId}_${sectionType}`;
+    setEditingSections(prev => {
       const next = new Set(prev);
-      if (next.has(noteId)) {
-        next.delete(noteId);
+      if (next.has(key)) {
+        next.delete(key);
       } else {
-        next.add(noteId);
+        next.add(key);
       }
       return next;
     });
   }, []);
+
+  const isSectionEditing = useCallback((noteId: string, sectionType: NotePageType) => {
+    return editingSections.has(`${noteId}_${sectionType}`);
+  }, [editingSections]);
 
   // Loading states for extraction, translation, analysis, prompt, and Notion
   const [extracting, setExtracting] = useState(false);
@@ -270,6 +293,7 @@ export default function NotePage(props: { noteId?: string } = {}) {
           title: n.title,
           pages: n.pages,  // 새 형식: pages 객체로 저장
           activePage: n.activePage,
+          openPages: n.openPages,  // 섹션별 토글 상태 저장
           isOpen: n.isOpen,
           sectionBoundary: n.sectionBoundary,
         }));
@@ -430,6 +454,7 @@ export default function NotePage(props: { noteId?: string } = {}) {
       title: '새 노트',
       pages: { manual: '' },
       activePage: 'manual',
+      openPages: { ...defaultOpenPages },
       isOpen: true,
     };
     setNotes(prev => [...prev, newNote]);
@@ -478,6 +503,20 @@ export default function NotePage(props: { noteId?: string } = {}) {
   // 활성 페이지 변경
   const setActivePage = useCallback((noteId: string, pageType: NotePageType) => {
     setNotes(prev => prev.map(n => n.id === noteId ? { ...n, activePage: pageType } : n));
+  }, []);
+
+  // 섹션(메모/번역/분석/Prompt) 토글
+  const toggleSection = useCallback((noteId: string, pageType: NotePageType) => {
+    setNotes(prev => prev.map(n => {
+      if (n.id !== noteId) return n;
+      return {
+        ...n,
+        openPages: {
+          ...n.openPages,
+          [pageType]: !n.openPages[pageType],
+        }
+      };
+    }));
   }, []);
 
   // 현재 노트의 활성 페이지 내용 가져오기
@@ -704,6 +743,7 @@ export default function NotePage(props: { noteId?: string } = {}) {
       title: '',
       pages: { manual: '' },
       activePage: 'manual',
+      openPages: { ...defaultOpenPages },
       isOpen: true,
     };
     setNotes(prev => {
@@ -986,6 +1026,7 @@ ${extractedText.slice(0, 50000)}`;
               title,
               pages: { manual: '' },
               activePage: 'manual' as NotePageType,
+              openPages: { ...defaultOpenPages },
               isOpen: true,
             }));
             setNotes(newNotes);
@@ -1005,6 +1046,7 @@ ${extractedText.slice(0, 50000)}`;
           title: section.title,
           pages: { manual: '' },
           activePage: 'manual' as NotePageType,
+          openPages: { ...defaultOpenPages },
           isOpen: true,
           sectionBoundary: {
             startIndex: section.startIndex,
@@ -1024,6 +1066,7 @@ ${extractedText.slice(0, 50000)}`;
           title: n.title,
           pages: n.pages,
           activePage: n.activePage,
+          openPages: n.openPages,
           isOpen: n.isOpen,
           sectionBoundary: n.sectionBoundary,
         }));
@@ -1053,10 +1096,13 @@ ${extractedText.slice(0, 50000)}`;
     const id = usedId || stripPrefixes(paperId);
     if (!id) return;
 
-    // 이미 번역 결과가 있으면 탭만 전환
+    // 이미 번역 결과가 있으면 해당 섹션 토글만 열기
     const note = notes.find(n => n.id === noteId);
     if (note?.pages.translation?.trim()) {
-      setActivePage(noteId, 'translation');
+      // 번역 섹션 토글 열기
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, translation: true } } : n
+      ));
       return;
     }
 
@@ -1090,9 +1136,11 @@ ${extractedText.slice(0, 50000)}`;
       }
 
       const translatedText = result.result?.translated_text || '';
-      // translation 페이지에 저장하고 해당 탭으로 전환
+      // translation 페이지에 저장하고 해당 섹션 토글 열기
       updateNotePage(noteId, 'translation', translatedText);
-      setActivePage(noteId, 'translation');
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, translation: true } } : n
+      ));
     } catch (e) {
       alert(`번역 에러: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -1105,10 +1153,13 @@ ${extractedText.slice(0, 50000)}`;
     const id = usedId || stripPrefixes(paperId);
     if (!id) return;
 
-    // 이미 분석 결과가 있으면 탭만 전환
+    // 이미 분석 결과가 있으면 해당 섹션 토글만 열기
     const note = notes.find(n => n.id === noteId);
     if (note?.pages.analysis?.trim()) {
-      setActivePage(noteId, 'analysis');
+      // 분석 섹션 토글 열기
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, analysis: true } } : n
+      ));
       return;
     }
 
@@ -1140,9 +1191,11 @@ ${extractedText.slice(0, 50000)}`;
       }
 
       const analysisText = result.result?.analysis_text || '';
-      // analysis 페이지에 저장하고 해당 탭으로 전환
+      // analysis 페이지에 저장하고 해당 섹션 토글 열기
       updateNotePage(noteId, 'analysis', analysisText);
-      setActivePage(noteId, 'analysis');
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, analysis: true } } : n
+      ));
     } catch (e) {
       alert(`분석 에러: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -1157,8 +1210,11 @@ ${extractedText.slice(0, 50000)}`;
     const question = note?.pages.qa?.trim() || '';
     
     if (!question) {
-      alert('QA 탭에 질문을 먼저 작성해주세요.');
-      setActivePage(noteId, 'qa');
+      alert('Prompt 섹션에 질문을 먼저 작성해주세요.');
+      // Prompt 섹션 토글 열기
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, qa: true } } : n
+      ));
       return;
     }
 
@@ -1198,11 +1254,14 @@ ${extractedText.slice(0, 50000)}`;
         return;
       }
 
-      // QA 탭에 결과 추가 (기존 질문 + 답변)
+      // QA 섹션에 결과 추가 (기존 질문 + 답변) 및 섹션 토글 열기
       const timestamp = new Date().toLocaleString('ko-KR');
       const qaResult = `${question}\n\n---\n\n**[${timestamp}] 답변:**\n\n${answer}`;
-      
+
       updateNotePage(noteId, 'qa', qaResult);
+      setNotes(prev => prev.map(n =>
+        n.id === noteId ? { ...n, openPages: { ...n.openPages, qa: true } } : n
+      ));
     } catch (e) {
       alert(`프롬프트 실행 에러: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -1690,7 +1749,7 @@ ${extractedText.slice(0, 50000)}`;
                     fontWeight: 600,
                     flexShrink: 0,
                   }}
-                  title={note.pages.analysis?.trim() ? '분석 결과 보기 (클릭하여 탭 전환)' : '이 섹션을 분석하여 해설합니다'}
+                  title={note.pages.analysis?.trim() ? '분석 결과 보기 (분석 토글이 열립니다)' : '이 섹션을 분석하여 해설합니다'}
                 >
                   {analyzingNoteId === note.id ? '분석 중...' : note.pages.analysis?.trim() ? 'Analysis ✓' : 'Analysis'}
                 </button>
@@ -1710,28 +1769,9 @@ ${extractedText.slice(0, 50000)}`;
                     fontWeight: 600,
                     flexShrink: 0,
                   }}
-                  title={note.pages.translation?.trim() ? '번역 결과 보기 (클릭하여 탭 전환)' : '이 섹션을 한국어로 번역합니다'}
+                  title={note.pages.translation?.trim() ? '번역 결과 보기 (번역 토글이 열립니다)' : '이 섹션을 한국어로 번역합니다'}
                 >
                   {translatingNoteId === note.id ? '번역 중...' : note.pages.translation?.trim() ? 'Translate ✓' : 'Translate'}
-                </button>
-
-                {/* Edit/Preview toggle button */}
-                <button
-                  onClick={() => toggleEditMode(note.id)}
-                  style={{
-                    padding: '3px 8px',
-                    borderRadius: 4,
-                    border: '1px solid #e2e8f0',
-                    backgroundColor: editingNoteIds.has(note.id) ? '#fed7e2' : '#e2e8f0',
-                    color: editingNoteIds.has(note.id) ? '#97266d' : '#4a5568',
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    flexShrink: 0,
-                  }}
-                  title={editingNoteIds.has(note.id) ? '미리보기 모드로 전환' : '편집 모드로 전환'}
-                >
-                  {editingNoteIds.has(note.id) ? 'Preview' : 'Edit'}
                 </button>
 
                 {/* Delete button */}
@@ -1753,157 +1793,190 @@ ${extractedText.slice(0, 50000)}`;
                 </button>
               </div>
 
-              {/* Note content (collapsible) */}
+              {/* Note content (collapsible) - 토글 형식 */}
               {note.isOpen && (
-                <div style={{ padding: 10 }}>
-                  {/* 탭 네비게이션 */}
-                  <div style={{ 
-                    display: 'flex', 
-                    gap: 2, 
-                    marginBottom: 10, 
-                    borderBottom: '1px solid #e2e8f0',
-                    paddingBottom: 6,
-                  }}>
-                    {(['manual', 'translation', 'analysis', 'qa'] as const).map(tab => {
-                      const hasContent = tab === 'manual' 
-                        ? !!note.pages.manual?.trim()
-                        : !!note.pages[tab]?.trim();
-                      const isActive = note.activePage === tab;
-                      const tabLabels = {
-                        manual: '📝 메모',
-                        translation: '🌐 번역',
-                        analysis: '🔬 분석',
-                        qa: '💬 Prompt',
-                      };
-                      return (
-                        <button
-                          key={tab}
-                          onClick={() => setActivePage(note.id, tab)}
+                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* 각 섹션을 토글로 표시 */}
+                  {(['manual', 'translation', 'analysis', 'qa'] as const).map(sectionType => {
+                    const sectionLabels = {
+                      manual: '📝 메모',
+                      translation: '🌐 번역',
+                      analysis: '🔬 분석',
+                      qa: '💬 Prompt',
+                    };
+                    const sectionColors = {
+                      manual: { bg: '#f0fff4', border: '#9ae6b4', header: '#276749' },
+                      translation: { bg: '#fffaf0', border: '#fbd38d', header: '#975a16' },
+                      analysis: { bg: '#faf5ff', border: '#d6bcfa', header: '#553c9a' },
+                      qa: { bg: '#ebf8ff', border: '#90cdf4', header: '#2b6cb0' },
+                    };
+                    const placeholders: Record<NotePageType, string> = {
+                      manual: '메모를 작성하세요...',
+                      translation: '번역 결과가 표시됩니다. 상단의 "Translate" 버튼을 클릭하거나 직접 작성하세요...',
+                      analysis: '분석 결과가 표시됩니다. 상단의 "Analysis" 버튼을 클릭하거나 직접 작성하세요...',
+                      qa: '질문을 작성한 후 상단의 "Prompt" 버튼을 클릭하세요...',
+                    };
+
+                    const content = note.pages[sectionType] || '';
+                    const hasContent = !!content.trim();
+                    const isOpen = note.openPages[sectionType];
+                    const isEditing = isSectionEditing(note.id, sectionType);
+                    const colors = sectionColors[sectionType];
+
+                    return (
+                      <div
+                        key={sectionType}
+                        style={{
+                          border: `1px solid ${colors.border}`,
+                          borderRadius: 8,
+                          overflow: 'hidden',
+                          backgroundColor: '#fff',
+                        }}
+                      >
+                        {/* 섹션 헤더 (토글 버튼) */}
+                        <div
+                          onClick={() => toggleSection(note.id, sectionType)}
                           style={{
-                            padding: '5px 10px',
-                            border: 'none',
-                            borderBottom: isActive ? '2px solid #3182ce' : '2px solid transparent',
-                            background: 'transparent',
-                            color: isActive ? '#3182ce' : '#718096',
-                            fontWeight: isActive ? 600 : 400,
-                            cursor: 'pointer',
-                            fontSize: 12,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: 4,
+                            padding: '8px 12px',
+                            backgroundColor: colors.bg,
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            gap: 8,
                           }}
                         >
-                          {tabLabels[tab]}
-                          {hasContent && !isActive && (
-                            <span style={{ 
-                              width: 6, 
-                              height: 6, 
-                              borderRadius: '50%', 
+                          <span style={{ fontSize: 12, color: colors.header }}>
+                            {isOpen ? '▼' : '▶'}
+                          </span>
+                          <span style={{
+                            fontWeight: 600,
+                            fontSize: 13,
+                            color: colors.header,
+                            flex: 1,
+                          }}>
+                            {sectionLabels[sectionType]}
+                          </span>
+                          {hasContent && (
+                            <span style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
                               backgroundColor: '#48bb78',
                             }} />
                           )}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* 현재 탭 내용 */}
-                  {(() => {
-                    const currentContent = note.pages[note.activePage] || '';
-                    const tabPlaceholders: Record<NotePageType, string> = {
-                      manual: '메모를 작성하세요...',
-                      translation: '번역 결과가 표시됩니다. "Translate" 버튼을 클릭하거나 직접 작성하세요...',
-                      analysis: '분석 결과가 표시됩니다. "Analysis" 버튼을 클릭하거나 직접 작성하세요...',
-                      qa: '질문을 작성한 후 "Prompt" 버튼을 클릭하세요...',
-                    };
-                    
-                    // 편집 모드: 모든 탭에서 편집 가능
-                    if (editingNoteIds.has(note.id)) {
-                      return (
-                        <div style={{ display: 'flex', gap: 10, minHeight: 150 }}>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ fontSize: 10, color: '#718096', marginBottom: 4, fontWeight: 600 }}>
-                              편집 (마크다운)
-                            </div>
-                            <textarea
-                              value={currentContent}
-                              onChange={(e) => updateNotePage(note.id, note.activePage, e.target.value)}
-                              placeholder={tabPlaceholders[note.activePage]}
-                              style={{
-                                flex: 1,
-                                width: '100%',
-                                minHeight: 120,
-                                resize: 'vertical',
-                                borderRadius: 6,
-                                border: '1px solid #e2e8f0',
-                                padding: 10,
-                                fontSize: 13,
-                                lineHeight: 1.6,
-                                outline: 'none',
-                                fontFamily: 'monospace',
+                          {isOpen && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSectionEditMode(note.id, sectionType);
                               }}
-                            />
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                            <div style={{ fontSize: 10, color: '#718096', marginBottom: 4, fontWeight: 600 }}>
-                              실시간 미리보기
-                            </div>
-                            <div
                               style={{
-                                flex: 1,
-                                borderRadius: 6,
+                                padding: '2px 8px',
+                                borderRadius: 4,
                                 border: '1px solid #e2e8f0',
-                                padding: 10,
-                                fontSize: 13,
-                                lineHeight: 1.6,
-                                backgroundColor: '#fafafa',
-                                overflowY: 'auto',
-                                minHeight: 120,
+                                backgroundColor: isEditing ? '#fed7e2' : '#e2e8f0',
+                                color: isEditing ? '#97266d' : '#4a5568',
+                                cursor: 'pointer',
+                                fontSize: 10,
+                                fontWeight: 600,
                               }}
                             >
-                              {currentContent.trim() ? (
-                                <div className="markdown-preview">
-                                  <ReactMarkdown>{currentContent}</ReactMarkdown>
-                                </div>
-                              ) : (
-                                <div style={{ color: '#a0aec0', fontStyle: 'italic' }}>
-                                  미리보기가 여기에 표시됩니다...
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                              {isEditing ? 'Preview' : 'Edit'}
+                            </button>
+                          )}
                         </div>
-                      );
-                    }
 
-                    // 미리보기 모드: 클릭하면 편집 모드로 전환
-                    return (
-                      <div
-                        onClick={() => toggleEditMode(note.id)}
-                        style={{
-                          minHeight: 60,
-                          borderRadius: 6,
-                          border: '1px solid #e2e8f0',
-                          padding: 10,
-                          fontSize: 13,
-                          lineHeight: 1.6,
-                          cursor: 'pointer',
-                          backgroundColor: '#fafafa',
-                        }}
-                        title="클릭하여 편집"
-                      >
-                        {currentContent.trim() ? (
-                          <div className="markdown-preview">
-                            <ReactMarkdown>{currentContent}</ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div style={{ color: '#a0aec0', fontStyle: 'italic' }}>
-                            {tabPlaceholders[note.activePage]}
+                        {/* 섹션 내용 */}
+                        {isOpen && (
+                          <div style={{ padding: 10 }}>
+                            {isEditing ? (
+                              // 편집 모드
+                              <div style={{ display: 'flex', gap: 10, minHeight: 120 }}>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                  <div style={{ fontSize: 10, color: '#718096', marginBottom: 4, fontWeight: 600 }}>
+                                    편집 (마크다운)
+                                  </div>
+                                  <textarea
+                                    value={content}
+                                    onChange={(e) => updateNotePage(note.id, sectionType, e.target.value)}
+                                    placeholder={placeholders[sectionType]}
+                                    style={{
+                                      flex: 1,
+                                      width: '100%',
+                                      minHeight: 100,
+                                      resize: 'vertical',
+                                      borderRadius: 6,
+                                      border: '1px solid #e2e8f0',
+                                      padding: 10,
+                                      fontSize: 13,
+                                      lineHeight: 1.6,
+                                      outline: 'none',
+                                      fontFamily: 'monospace',
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                                  <div style={{ fontSize: 10, color: '#718096', marginBottom: 4, fontWeight: 600 }}>
+                                    실시간 미리보기
+                                  </div>
+                                  <div
+                                    style={{
+                                      flex: 1,
+                                      borderRadius: 6,
+                                      border: '1px solid #e2e8f0',
+                                      padding: 10,
+                                      fontSize: 13,
+                                      lineHeight: 1.6,
+                                      backgroundColor: '#fafafa',
+                                      overflowY: 'auto',
+                                      minHeight: 100,
+                                    }}
+                                  >
+                                    {content.trim() ? (
+                                      <div className="markdown-preview">
+                                        <ReactMarkdown>{content}</ReactMarkdown>
+                                      </div>
+                                    ) : (
+                                      <div style={{ color: '#a0aec0', fontStyle: 'italic' }}>
+                                        미리보기가 여기에 표시됩니다...
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              // 미리보기 모드
+                              <div
+                                onClick={() => toggleSectionEditMode(note.id, sectionType)}
+                                style={{
+                                  minHeight: 40,
+                                  borderRadius: 6,
+                                  border: '1px solid #e2e8f0',
+                                  padding: 10,
+                                  fontSize: 13,
+                                  lineHeight: 1.6,
+                                  cursor: 'pointer',
+                                  backgroundColor: '#fafafa',
+                                }}
+                                title="클릭하여 편집"
+                              >
+                                {content.trim() ? (
+                                  <div className="markdown-preview">
+                                    <ReactMarkdown>{content}</ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <div style={{ color: '#a0aec0', fontStyle: 'italic' }}>
+                                    {placeholders[sectionType]}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     );
-                  })()}
+                  })}
                 </div>
               )}
             </div>
