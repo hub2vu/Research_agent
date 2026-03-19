@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements/agent.txt
 # Copy Agent source code and shared modules
 COPY agent/ /app/agent/
 COPY logs/ /app/logs/
+COPY runtime/ /app/runtime/
 
 # Create data directories (for local file access if needed)
 RUN mkdir -p /data/pdf /data/output

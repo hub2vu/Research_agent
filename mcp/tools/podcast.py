@@ -7,11 +7,10 @@ import os
 import json
 from pathlib import Path
 from typing import Dict, Any, List
-import openai
 from ..base import MCPTool, ToolParameter, ExecutionError
+from runtime.service_config import build_openai_client
 
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
-API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 class PodcastGeneratorTool(MCPTool):
@@ -96,8 +95,6 @@ class PodcastGeneratorTool(MCPTool):
     async def execute(
         self, paper_id: str, style: str = "casual", voice: str = "onyx"
     ) -> Dict[str, Any]:
-        if not API_KEY:
-            raise ExecutionError("OPENAI_API_KEY is not set.", self.name)
 
         # 1. 파일 경로 설정
         paper_dir = OUTPUT_DIR / paper_id
@@ -109,7 +106,7 @@ class PodcastGeneratorTool(MCPTool):
             return {"error": "Paper text not found. Run extract_text first."}
 
         try:
-            client = openai.OpenAI(api_key=API_KEY)
+            client = build_openai_client()
 
             # 2. 텍스트 읽기 (너무 길면 앞부분 20,000자만 - 토큰 절약)
             with open(text_file, "r", encoding="utf-8", errors="ignore") as f:
@@ -140,5 +137,7 @@ class PodcastGeneratorTool(MCPTool):
                 "message": "Podcast generated successfully. Listen to the audio file!",
             }
 
+        except RuntimeError as e:
+            raise ExecutionError(str(e), self.name) from e
         except Exception as e:
             raise ExecutionError(f"Podcast generation failed: {str(e)}", self.name)

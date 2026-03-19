@@ -15,6 +15,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import GraphCanvas from '../components/GraphCanvas';
 import SidePanel from '../components/SidePanel';
 import { GraphNode, GraphEdge } from '../lib/mcp';
+import { recordRecentPaper } from '../lib/recentPapers';
 import { useNodeColors } from '../hooks/useNodeColors';
 
 /* ----------------------------- Types ----------------------------- */
@@ -142,6 +143,7 @@ export default function PaperGraphPage() {
 
       const { usedId, json } = resolved;
       const titles = json.titles || [];
+      const paperTitle = String(json.original_filename || json.filename || usedId).replace(/\.pdf$/i, '');
 
       console.log(`Found ${titles.length} reference titles (folder used: ${usedId})`);
 
@@ -187,6 +189,13 @@ export default function PaperGraphPage() {
       }));
 
       const allNodes = [centerNode, ...refNodes];
+
+      recordRecentPaper({
+        paperId: centerCanonicalId,
+        title: paperTitle,
+        venue: 'Workspace',
+        route: `/paper/${encodeURIComponent(centerCanonicalId)}`
+      });
 
       setState({
         nodes: allNodes,
@@ -240,7 +249,7 @@ export default function PaperGraphPage() {
   /* ------------------------ Navigation ------------------------ */
 
   const handleBackToGlobal = useCallback(() => {
-    navigate('/');
+    navigate('/graph');
   }, [navigate]);
   const handleOpenNote = () => navigate(`/note/${paperId}`);
 

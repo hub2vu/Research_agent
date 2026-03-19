@@ -6,6 +6,7 @@ import ArxivSearchSidebar from '../components/ArxivSearchSidebar';
 import ArxivRankedList from '../components/ArxivRankedList';
 import PaperListView from '../components/PaperListView';
 import { getGlobalGraph, rebuildGlobalGraph, GraphNode, executeRankFilterPipeline } from '../lib/mcp';
+import { recordRecentPaper } from '../lib/recentPapers';
 import { ScoredPaper } from '../components/PaperResultCard';
 import { useNodeColors } from '../hooks/useNodeColors';
 
@@ -202,11 +203,24 @@ export default function GlobalGraphPage() {
     }
   }, [state.nodes]);
 
+  useEffect(() => {
+    if (!selectedNode?.id) {
+      return;
+    }
+
+    recordRecentPaper({
+      paperId: normalizeArxivToDoiLike(String(selectedNode.id)),
+      title: String(selectedNode.title || selectedNode.label || selectedNode.id),
+      venue: 'Workspace',
+      route: `/paper/${encodeURIComponent(String(selectedNode.id))}`
+    });
+  }, [selectedNode]);
+
   const selectedKey = selectedNode ? getStableKey(selectedNode as any) : '';
 
   return (
-    <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', height: '100%', minHeight: 0, overflow: 'hidden', backgroundColor: '#f5f5f5' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
         <header style={{ padding: '16px 24px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <h1 style={{ margin: 0, fontSize: '20px', color: '#1a202c' }}>Global Paper Graph</h1>
@@ -232,7 +246,7 @@ export default function GlobalGraphPage() {
           </div>
         </header>
 
-        <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ flex: 1, position: 'relative', minWidth: 0, minHeight: 0 }}>
           {!state.loading && !state.error && showSearchSidebar && (
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10 }}>
               <ArxivSearchSidebar searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} onSearch={handleSearch} isSearching={isSearching} />

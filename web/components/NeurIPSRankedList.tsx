@@ -1,11 +1,6 @@
-/**
- * NeurIPSRankedList Component
- *
- * Displays ranked search results for NeurIPS papers with full details.
- */
-
 import React, { useState, useRef, useEffect } from 'react';
 import { ScoredPaper } from './PaperResultCard';
+import './workspaceTheme.css';
 
 interface NeurIPSRankedListProps {
   papers: ScoredPaper[];
@@ -14,13 +9,22 @@ interface NeurIPSRankedListProps {
   onClose?: () => void;
 }
 
-// Cluster color function (same as PaperCard)
 function getClusterColor(cluster: number): string {
-  const colors = [
-    '#4299e1', '#48bb78', '#ed8936', '#9f7aea',
-    '#f56565', '#38b2ac', '#ed64a6', '#667eea'
-  ];
+  const colors = ['#7c9885', '#cc5833', '#c88a4d', '#7287a6', '#8f584a', '#547a74', '#a06c5d', '#44636c'];
   return colors[cluster % colors.length];
+}
+
+function getTagColor(tag: string) {
+  if (tag.includes('HIGH_MATCH') || tag.includes('PREFERRED') || tag.includes('CODE_AVAILABLE') || tag.includes('SEMANTIC_HIGH')) {
+    return { background: 'rgba(46, 64, 54, 0.12)', color: '#2e4036', border: 'rgba(46, 64, 54, 0.16)' };
+  }
+  if (tag.includes('PENALTY') || tag.includes('NO_CODE') || tag.includes('OLDER')) {
+    return { background: 'rgba(204, 88, 51, 0.12)', color: '#9b3c1f', border: 'rgba(204, 88, 51, 0.16)' };
+  }
+  if (tag.includes('CONTRASTIVE')) {
+    return { background: 'rgba(200, 138, 77, 0.16)', color: '#8a5a23', border: 'rgba(200, 138, 77, 0.24)' };
+  }
+  return { background: 'rgba(114, 135, 166, 0.14)', color: '#41546f', border: 'rgba(114, 135, 166, 0.22)' };
 }
 
 export default function NeurIPSRankedList({
@@ -35,40 +39,31 @@ export default function NeurIPSRankedList({
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Calculate initial top position (bottom: 16px)
     if (containerRef.current && position.top === null) {
       const rect = containerRef.current.getBoundingClientRect();
-      const windowHeight = window.innerHeight;
-      const initialTop = windowHeight - rect.height - 16;
+      const initialTop = window.innerHeight - rect.height - 16;
       setPosition({ left: 16, top: initialTop });
     }
-  }, [papers.length]);
+  }, [papers.length, position.top]);
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!isDragging) {
+        return;
+      }
 
-      const newLeft = e.clientX - dragOffset.x;
-      const newTop = e.clientY - dragOffset.y;
-
-      // Constrain to viewport bounds
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      const containerWidth = containerRef.current?.offsetWidth || 450;
-      const containerHeight = containerRef.current?.offsetHeight || 200;
-
-      const constrainedLeft = Math.max(0, Math.min(newLeft, windowWidth - containerWidth));
-      const constrainedTop = Math.max(0, Math.min(newTop, windowHeight - containerHeight));
+      const nextLeft = event.clientX - dragOffset.x;
+      const nextTop = event.clientY - dragOffset.y;
+      const width = containerRef.current?.offsetWidth || 450;
+      const height = containerRef.current?.offsetHeight || 200;
 
       setPosition({
-        left: constrainedLeft,
-        top: constrainedTop,
+        left: Math.max(0, Math.min(nextLeft, window.innerWidth - width)),
+        top: Math.max(0, Math.min(nextTop, window.innerHeight - height)),
       });
     };
 
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
+    const handleMouseUp = () => setIsDragging(false);
 
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -79,119 +74,75 @@ export default function NeurIPSRankedList({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragOffset]);
-
-  const handleHeaderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!containerRef.current) return;
-    
-    const rect = containerRef.current.getBoundingClientRect();
-    setDragOffset({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    });
-    setIsDragging(true);
-  };
-
-  const formatScore = (score: number) => {
-    return (score * 100).toFixed(1);
-  };
-
-  const getTagColor = (tag: string) => {
-    if (tag.includes('HIGH_MATCH') || tag.includes('PREFERRED') || tag.includes('CODE_AVAILABLE') || tag.includes('SEMANTIC_HIGH')) {
-      return '#48bb78'; // green
-    }
-    if (tag.includes('PENALTY') || tag.includes('NO_CODE') || tag.includes('OLDER')) {
-      return '#f56565'; // red
-    }
-    if (tag.includes('CONTRASTIVE')) {
-      return '#ed8936'; // orange
-    }
-    return '#4299e1'; // blue
-  };
+  }, [dragOffset, isDragging]);
 
   if (papers.length === 0) {
     return null;
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
+      className="workspace-ranked-list"
       style={{
         position: 'absolute',
         left: position.top === null ? '16px' : `${position.left}px`,
         top: position.top === null ? undefined : `${position.top}px`,
         bottom: position.top === null ? '16px' : undefined,
         zIndex: isDragging ? 10 : 5,
-        backgroundColor: 'rgba(26, 32, 44, 0.95)',
-        borderRadius: '8px',
-        width: '450px',
+        width: '460px',
+        maxWidth: 'calc(100vw - 32px)',
         maxHeight: 'calc(100vh - 200px)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
         display: 'flex',
         flexDirection: 'column',
         cursor: isDragging ? 'grabbing' : 'default',
       }}
     >
-      {/* Header with close button */}
-      <div 
-        onMouseDown={handleHeaderMouseDown}
+      <div
+        onMouseDown={(event) => {
+          if (!containerRef.current) {
+            return;
+          }
+
+          const rect = containerRef.current.getBoundingClientRect();
+          setDragOffset({ x: event.clientX - rect.left, y: event.clientY - rect.top });
+          setIsDragging(true);
+        }}
         style={{
-          padding: '12px 16px',
-          borderBottom: '1px solid #2d3748',
+          padding: '16px 18px',
+          borderBottom: '1px solid rgba(46, 64, 54, 0.08)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          flexShrink: 0,
           cursor: 'grab',
+          gap: '16px',
         }}
       >
-        <h3 style={{
-          margin: 0,
-          color: '#fff',
-          fontSize: '16px',
-          fontWeight: 600,
-        }}>
-          Ranked Results ({papers.length})
-        </h3>
+        <div>
+          <div className="workspace-kicker">Ranked Results Overlay</div>
+          <div className="workspace-title" style={{ fontSize: '24px', marginTop: '4px' }}>
+            Ranked matches ({papers.length})
+          </div>
+        </div>
         {onClose && (
           <button
             onClick={onClose}
-            onMouseDown={(e) => e.stopPropagation()}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
-              cursor: 'pointer',
-              color: '#a0aec0',
-              lineHeight: 1,
-              padding: '0',
-              width: '24px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            onMouseDown={(event) => event.stopPropagation()}
+            className="workspace-ghost-btn workspace-dismiss-btn"
             aria-label="Close"
           >
-            ×
+            X
           </button>
         )}
       </div>
 
-      {/* Scrollable content */}
-      <div style={{
-        overflowY: 'auto',
-        padding: '12px',
-      }}>
+      <div className="workspace-scroll" style={{ padding: '14px' }}>
         {papers.map((paper) => (
           <PaperItem
             key={paper.paper_id}
             paper={paper}
             onPaperClick={onPaperClick}
             clusterId={clusterMap[paper.paper_id] ?? null}
-            formatScore={formatScore}
-            getTagColor={getTagColor}
-            getClusterColor={getClusterColor}
           />
         ))}
       </div>
@@ -203,222 +154,131 @@ function PaperItem({
   paper,
   onPaperClick,
   clusterId,
-  formatScore,
-  getTagColor,
-  getClusterColor,
 }: {
   paper: ScoredPaper;
   onPaperClick: (paperId: string) => void;
   clusterId: number | null;
-  formatScore: (score: number) => string;
-  getTagColor: (tag: string) => string;
-  getClusterColor: (cluster: number) => string;
 }) {
   const [showBreakdown, setShowBreakdown] = useState(false);
-
-  // Get NeurIPS-specific URLs from original_data
   const originalData = (paper as any).original_data || {};
   const virtualsiteUrl = originalData.virtualsite_url || null;
   const pdfUrl = originalData.pdf_url || null;
   const reasoning = (paper as any).reasoning || null;
-
-  // Build NeurIPS page URL (fallback if virtualsite_url not available)
   const neuripsPageUrl = virtualsiteUrl || `https://nips.cc/virtual/2025/poster/${paper.paper_id}`;
+  const formatScore = (score: number) => `${(score * 100).toFixed(1)}%`;
 
   return (
-    <div
-      style={{
-        backgroundColor: '#1a202c',
-        borderRadius: '6px',
-        padding: '12px',
-        marginBottom: '12px',
-        border: '1px solid #2d3748',
-      }}
-    >
-      {/* Rank and Score */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-        <span style={{
-          backgroundColor: '#4a90d9',
-          color: '#fff',
-          padding: '3px 8px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 600,
-        }}>
-          #{paper.rank}
-        </span>
-        <span style={{
-          backgroundColor: '#2d3748',
-          color: '#e2e8f0',
-          padding: '3px 8px',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 500,
-        }}>
-          Score: {formatScore(paper.score.final)}%
-        </span>
+    <div className="workspace-result-card" style={{ padding: '16px', marginBottom: '12px' }}>
+      <div className="workspace-mobile-stack" style={{ marginBottom: '10px' }}>
+        <span className="workspace-pill" data-tone="accent">#{paper.rank}</span>
+        <span className="workspace-pill">Score {formatScore(paper.score.final)}</span>
         {clusterId !== null && (
-          <span style={{
-            backgroundColor: getClusterColor(clusterId),
-            color: '#fff',
-            padding: '3px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: 500,
-          }}>
+          <span
+            className="workspace-pill"
+            style={{ background: `${getClusterColor(clusterId)}1f`, color: getClusterColor(clusterId), borderColor: `${getClusterColor(clusterId)}33` }}
+          >
             Cluster {clusterId}
           </span>
         )}
       </div>
 
-      {/* Title */}
-      <h4
+      <button
         onClick={() => onPaperClick(paper.paper_id)}
         style={{
-          margin: '0 0 6px 0',
-          color: '#fff',
-          fontSize: '14px',
-          fontWeight: 600,
-          lineHeight: 1.4,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          textAlign: 'left',
           cursor: 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = '#4a90d9';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = '#fff';
+          color: 'var(--charcoal)',
+          fontSize: '16px',
+          fontWeight: 700,
+          lineHeight: 1.45,
         }}
       >
         {paper.title}
-      </h4>
+      </button>
 
-      {/* Authors */}
-      <div style={{
-        color: '#a0aec0',
-        fontSize: '12px',
-        marginBottom: '6px',
-      }}>
+      <div style={{ marginTop: '8px', color: 'rgba(22, 22, 22, 0.62)', fontSize: '13px', lineHeight: 1.6 }}>
         {paper.authors.join(', ')}
       </div>
 
-      {/* Published Date */}
       {paper.published && (
-        <div style={{
-          color: '#718096',
-          fontSize: '11px',
-          marginBottom: '8px',
-        }}>
-          Published: {paper.published}
+        <div className="workspace-kicker" style={{ marginTop: '10px', letterSpacing: '0.12em' }}>
+          Published {paper.published}
         </div>
       )}
 
-      {/* Tags */}
-      {(paper.tags && paper.tags.length > 0) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-          {paper.tags.map((tag, idx) => (
-            <span
-              key={idx}
-              style={{
-                backgroundColor: getTagColor(tag),
-                color: '#fff',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                fontWeight: 500,
-              }}
-            >
-              {tag.replace(/_/g, ' ')}
-            </span>
-          ))}
+      {!!paper.tags?.length && (
+        <div className="workspace-mobile-stack" style={{ marginTop: '12px' }}>
+          {paper.tags.map((tag) => {
+            const color = getTagColor(tag);
+            return (
+              <span
+                key={tag}
+                className="workspace-pill"
+                style={{ background: color.background, color: color.color, borderColor: color.border }}
+              >
+                {tag.replace(/_/g, ' ')}
+              </span>
+            );
+          })}
         </div>
       )}
 
-      {/* Reasoning */}
       {reasoning && (
-        <div style={{
-          marginTop: '8px',
-          marginBottom: '10px',
-          padding: '8px',
-          backgroundColor: '#2d3748',
-          borderRadius: '4px',
-          fontSize: '11px',
-          color: '#a0aec0',
-          fontStyle: 'italic',
-        }}>
-          💡 {reasoning}
+        <div
+          className="workspace-list-card"
+          style={{ marginTop: '14px', padding: '12px 14px', color: 'rgba(22, 22, 22, 0.66)', fontSize: '12px', fontStyle: 'italic' }}
+        >
+          {reasoning}
         </div>
       )}
 
-      {/* Score Breakdown */}
-      <div style={{ marginBottom: '10px' }}>
+      <div style={{ marginTop: '14px' }}>
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowBreakdown(!showBreakdown);
+          onClick={(event) => {
+            event.stopPropagation();
+            setShowBreakdown((current) => !current);
           }}
-          style={{
-            background: 'none',
-            border: '1px solid #4a5568',
-            color: '#a0aec0',
-            padding: '6px 12px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            cursor: 'pointer',
-          }}
+          className="workspace-btn-secondary"
+          style={{ border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
         >
           {showBreakdown ? 'Hide' : 'Show'} Score Breakdown
         </button>
         {showBreakdown && (
-          <div style={{
-            marginTop: '8px',
-            padding: '10px',
-            backgroundColor: '#2d3748',
-            borderRadius: '4px',
-            fontSize: '11px',
-          }}>
-            <div style={{ color: '#e2e8f0', marginBottom: '6px', fontWeight: 500 }}>Breakdown:</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', color: '#a0aec0' }}>
-              <div>Semantic: {formatScore(paper.score.breakdown.semantic_relevance)}%</div>
-              <div>Keywords: {formatScore(paper.score.breakdown.must_keywords)}%</div>
-              <div>Author Trust: {formatScore(paper.score.breakdown.author_trust)}%</div>
-              <div>Institution: {formatScore(paper.score.breakdown.institution_trust)}%</div>
-              <div>Recency: {formatScore(paper.score.breakdown.recency)}%</div>
-              <div>Practicality: {formatScore(paper.score.breakdown.practicality)}%</div>
+          <div className="workspace-list-card" style={{ marginTop: '12px', padding: '14px' }}>
+            <div className="workspace-section-label">Score Breakdown</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '12px', color: 'rgba(22, 22, 22, 0.66)' }}>
+              <div>Semantic {formatScore(paper.score.breakdown.semantic_relevance)}</div>
+              <div>Keywords {formatScore(paper.score.breakdown.must_keywords)}</div>
+              <div>Author Trust {formatScore(paper.score.breakdown.author_trust)}</div>
+              <div>Institution {formatScore(paper.score.breakdown.institution_trust)}</div>
+              <div>Recency {formatScore(paper.score.breakdown.recency)}</div>
+              <div>Practicality {formatScore(paper.score.breakdown.practicality)}</div>
             </div>
             {paper.score.soft_penalty < 0 && (
-              <div style={{ color: '#f56565', marginTop: '6px', fontSize: '10px' }}>
-                Penalty: {formatScore(paper.score.soft_penalty)}%
-                {paper.score.penalty_keywords.length > 0 && (
-                  <span> ({paper.score.penalty_keywords.join(', ')})</span>
-                )}
+              <div style={{ marginTop: '10px', color: '#9b3c1f', fontSize: '11px' }}>
+                Penalty {formatScore(paper.score.soft_penalty)}
+                {!!paper.score.penalty_keywords.length && ` (${paper.score.penalty_keywords.join(', ')})`}
               </div>
             )}
-            <div style={{ color: '#718096', marginTop: '6px', fontSize: '10px' }}>
-              Method: {paper.score.evaluation_method}
+            <div className="workspace-kicker" style={{ marginTop: '10px', letterSpacing: '0.12em' }}>
+              Method {paper.score.evaluation_method}
             </div>
           </div>
         )}
       </div>
 
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+      <div className="workspace-mobile-stack" style={{ marginTop: '14px' }}>
         {pdfUrl && (
           <a
             href={pdfUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '4px',
-              border: 'none',
-              backgroundColor: '#4a90d9',
-              color: '#fff',
-              fontSize: '11px',
-              fontWeight: 500,
-              textDecoration: 'none',
-              display: 'inline-block',
-            }}
+            onClick={(event) => event.stopPropagation()}
+            className="workspace-btn"
+            style={{ padding: '10px 14px', textDecoration: 'none', fontSize: '11px' }}
           >
             Download PDF
           </a>
@@ -427,17 +287,9 @@ function PaperItem({
           href={neuripsPageUrl}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            padding: '6px 12px',
-            borderRadius: '4px',
-            border: '1px solid #4a5568',
-            backgroundColor: 'transparent',
-            color: '#a0aec0',
-            fontSize: '11px',
-            textDecoration: 'none',
-            display: 'inline-block',
-          }}
+          onClick={(event) => event.stopPropagation()}
+          className="workspace-btn-secondary"
+          style={{ padding: '10px 14px', textDecoration: 'none', fontSize: '11px' }}
         >
           View on NeurIPS
         </a>

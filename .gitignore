@@ -1,7 +1,6 @@
-
-.env
 node_modules/
 dist/
+output/_runtime/
 
 # Python
 __pycache__/

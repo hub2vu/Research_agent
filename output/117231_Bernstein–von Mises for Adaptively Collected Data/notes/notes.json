@@ -1,0 +1,546 @@
+{
+  "notes": [
+    {
+      "id": "note_1773291599963_48oee3",
+      "title": "Abstract",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 289,
+        "endIndex": 2043,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_qbi0i4",
+      "title": "1 Introduction",
+      "pages": {
+        "manual": "adwdads"
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 2043,
+        "endIndex": 6989,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_8rvvwx",
+      "title": "2 Background",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 6989,
+        "endIndex": 9246,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_31taoj",
+      "title": "3 BvM on Adaptive Linear Gaussian Data",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 9246,
+        "endIndex": 16207,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_0i5fjx",
+      "title": "4 BvM on Multi-armed Bandits",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 16207,
+        "endIndex": 21851,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_7eujtc",
+      "title": "1 Nn,i",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 21851,
+        "endIndex": 23884,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_343una",
+      "title": "5 BvM on Gaussian Linear Bandits",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 23884,
+        "endIndex": 26009,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_2bw5m4",
+      "title": "6 Numerical Experiments",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 26009,
+        "endIndex": 33130,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_1m6t2e",
+      "title": "7 Discussion and Future Work",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 33130,
+        "endIndex": 36020,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_pncxs8",
+      "title": "References",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 36020,
+        "endIndex": 41710,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_t8d9wu",
+      "title": "12 NeurIPS Paper Checklist",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 41710,
+        "endIndex": 42794,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_gx58bw",
+      "title": "2. Limitations",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 42794,
+        "endIndex": 45248,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_8wbf40",
+      "title": "3. Theory assumptions and proofs",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 45248,
+        "endIndex": 46277,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_o9723j",
+      "title": "4. Experimental result reproducibility",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 46277,
+        "endIndex": 49120,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_1xpxqk",
+      "title": "5. Open access to data and code",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 49120,
+        "endIndex": 51567,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_fltbml",
+      "title": "7. Experiment statistical significance",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 51567,
+        "endIndex": 53302,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_rdfq0l",
+      "title": "8. Experiments compute resources",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 53302,
+        "endIndex": 54230,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_9iw6mp",
+      "title": "9. Code of ethics",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 54230,
+        "endIndex": 55042,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_czrxzf",
+      "title": "10. Broader impacts",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 55042,
+        "endIndex": 57070,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_dprop8",
+      "title": "11. Safeguards",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 57070,
+        "endIndex": 58080,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_z6ma1n",
+      "title": "12. Licenses for existing assets",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 58080,
+        "endIndex": 59471,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_fyuaa6",
+      "title": "13. New assets",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 59471,
+        "endIndex": 60189,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_sxrkx6",
+      "title": "14. Crowdsourcing and research with human subjects",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 60189,
+        "endIndex": 62248,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_xsc5n1",
+      "title": "16. Declaration of LLM usage",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 62248,
+        "endIndex": 63065,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_6if72r",
+      "title": "19 A\nSource Code",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 63065,
+        "endIndex": 63240,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_dczlwf",
+      "title": "B Main Theorems",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 63240,
+        "endIndex": 67219,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_7t32go",
+      "title": "N PN",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 67219,
+        "endIndex": 69726,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_bsl3ix",
+      "title": "R CC",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 69726,
+        "endIndex": 71672,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_nqp79u",
+      "title": "C Technical Lemmas",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 71672,
+        "endIndex": 73259,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_hd0boo",
+      "title": "1 Bn is indeed satisfied for some sequence",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 73259,
+        "endIndex": 73456,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_mn5sdo",
+      "title": "1 C for infinitely",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 73456,
+        "endIndex": 75434,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_gq09uq",
+      "title": "D Auxilliary results",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 75434,
+        "endIndex": 76903,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_hlffkx",
+      "title": "0 K\nId",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 76903,
+        "endIndex": 78383,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_bu7pr2",
+      "title": "2 Then,",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 78383,
+        "endIndex": 79003,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_hlujs8",
+      "title": "E Heteroskedastic Bandits",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 79003,
+        "endIndex": 80312,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_8jsmxg",
+      "title": "F Parametric BvM",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 80312,
+        "endIndex": 82414,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_qcx3cx",
+      "title": "G Real-world example",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 82414,
+        "endIndex": 83688,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291599963_p2c1lw",
+      "title": "H Plots",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 83688,
+        "endIndex": 84140,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773291607087_www9a6",
+      "title": "새 노트",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true
+    }
+  ],
+  "updated_at": "2026-03-13T12:39:15.077253"
+}

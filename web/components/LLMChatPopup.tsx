@@ -1,12 +1,6 @@
-/**
- * LLMChatPopup Component
- *
- * A popup chat window that interfaces with the agent LLM.
- * Uses the MCP server's chat endpoint to send messages.
- */
-
 import React, { useState, useRef, useEffect } from 'react';
 import { LatexDiv } from './LatexText';
+import './workspaceTheme.css';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -27,8 +21,8 @@ export default function LLMChatPopup({ isOpen, onClose }: LLMChatPopupProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
+    if (isOpen) {
+      inputRef.current?.focus();
     }
   }, [isOpen]);
 
@@ -37,7 +31,9 @@ export default function LLMChatPopup({ isOpen, onClose }: LLMChatPopupProps) {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading) {
+      return;
+    }
 
     const userMessage: Message = {
       role: 'user',
@@ -45,152 +41,129 @@ export default function LLMChatPopup({ isOpen, onClose }: LLMChatPopupProps) {
       timestamp: Date.now(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((current) => [...current, userMessage]);
     setInput('');
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/chat', {
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage.content,
-          history: messages.map(m => ({ role: m.role, content: m.content }))
+          history: messages.map((message) => ({ role: message.role, content: message.content })),
         }),
       });
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
 
-      const data = await res.json();
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.response || data.error || 'No response',
-        timestamp: Date.now(),
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      const data = await response.json();
+      setMessages((current) => [
+        ...current,
+        {
+          role: 'assistant',
+          content: data.response || data.error || 'No response',
+          timestamp: Date.now(),
+        },
+      ]);
     } catch (err) {
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: `Error: ${err instanceof Error ? err.message : 'Failed to send message'}`,
-        timestamp: Date.now(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((current) => [
+        ...current,
+        {
+          role: 'assistant',
+          content: `Error: ${err instanceof Error ? err.message : 'Failed to send message'}`,
+          timestamp: Date.now(),
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000,
-    }}>
-      <div style={{
-        width: '600px',
-        maxWidth: '90vw',
-        height: '70vh',
-        backgroundColor: '#1a202c',
-        borderRadius: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-      }}>
-        {/* Header */}
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #2d3748',
+    <div className="workspace-chat-wrap">
+      <div className="workspace-overlay" onClick={onClose} />
+      <div
+        className="workspace-chat-card"
+        style={{
+          position: 'relative',
+          width: '680px',
+          maxWidth: 'calc(100vw - 32px)',
+          height: '72vh',
+          maxHeight: '820px',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <h3 style={{ margin: 0, color: '#fff', fontSize: '16px' }}>
-            LLM Chat
-          </h3>
+          flexDirection: 'column',
+          zIndex: 1,
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 20px',
+            borderBottom: '1px solid rgba(46, 64, 54, 0.08)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: '16px',
+          }}
+        >
+          <div>
+            <div className="workspace-kicker">LLM Chat Popup</div>
+            <div className="workspace-title" style={{ fontSize: '24px', marginTop: '4px' }}>Research agent</div>
+            <div className="workspace-subtle" style={{ marginTop: '4px', fontSize: '13px' }}>
+              Ask for synthesis, comparisons, or next reading directions.
+            </div>
+          </div>
           <button
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#a0aec0',
-              fontSize: '24px',
-              cursor: 'pointer',
-              lineHeight: 1,
-            }}
+            className="workspace-ghost-btn workspace-dismiss-btn"
+            aria-label="Close chat"
           >
-            &times;
+            X
           </button>
         </div>
 
-        {/* Messages */}
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '16px',
-        }}>
+        <div className="workspace-scroll" style={{ flex: 1, padding: '18px 20px' }}>
           {messages.length === 0 && (
-            <div style={{
-              color: '#718096',
-              textAlign: 'center',
-              marginTop: '40px',
-            }}>
-              Start a conversation with the Research Agent LLM
+            <div className="workspace-empty-card workspace-list-card" style={{ margin: '32px auto 0', maxWidth: '420px' }}>
+              <h3 className="workspace-title" style={{ fontSize: '24px' }}>Start a thread</h3>
+              <p>Use the conference context to ask for recommendations, summaries, or grounded follow-ups.</p>
             </div>
           )}
 
-          {messages.map((msg, idx) => (
+          {messages.map((message) => (
             <div
-              key={idx}
+              key={message.timestamp}
               style={{
-                marginBottom: '12px',
                 display: 'flex',
-                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                justifyContent: message.role === 'user' ? 'flex-end' : 'flex-start',
+                marginBottom: '12px',
               }}
             >
-              <div style={{
-                maxWidth: '80%',
-                padding: '10px 14px',
-                borderRadius: '12px',
-                backgroundColor: msg.role === 'user' ? '#4a90d9' : '#2d3748',
-                color: '#fff',
-                wordBreak: 'break-word',
-                fontSize: '14px',
-              }}>
-                <LatexDiv>{msg.content}</LatexDiv>
+              <div
+                className="workspace-chat-bubble"
+                data-role={message.role}
+                style={{
+                  maxWidth: '82%',
+                  padding: '14px 16px',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  wordBreak: 'break-word',
+                }}
+              >
+                <LatexDiv>{message.content}</LatexDiv>
               </div>
             </div>
           ))}
 
           {isLoading && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'flex-start',
-              marginBottom: '12px',
-            }}>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '12px',
-                backgroundColor: '#2d3748',
-                color: '#a0aec0',
-              }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '12px' }}>
+              <div className="workspace-chat-bubble" data-role="assistant" style={{ padding: '14px 16px', fontSize: '13px' }}>
                 Thinking...
               </div>
             </div>
@@ -199,45 +172,35 @@ export default function LLMChatPopup({ isOpen, onClose }: LLMChatPopupProps) {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div style={{
-          padding: '16px',
-          borderTop: '1px solid #2d3748',
-          display: 'flex',
-          gap: '10px',
-        }}>
+        <div
+          style={{
+            padding: '18px 20px',
+            borderTop: '1px solid rgba(46, 64, 54, 0.08)',
+            display: 'flex',
+            gap: '12px',
+          }}
+        >
           <input
             ref={inputRef}
+            className="workspace-input"
             type="text"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+              }
+            }}
             placeholder="Type a message..."
             disabled={isLoading}
-            style={{
-              flex: 1,
-              padding: '12px 16px',
-              borderRadius: '8px',
-              border: '1px solid #2d3748',
-              backgroundColor: '#2d3748',
-              color: '#fff',
-              fontSize: '14px',
-              outline: 'none',
-            }}
+            style={{ flex: 1, padding: '14px 16px', fontSize: '14px' }}
           />
           <button
             onClick={sendMessage}
             disabled={isLoading || !input.trim()}
-            style={{
-              padding: '12px 24px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: isLoading || !input.trim() ? '#4a5568' : '#4a90d9',
-              color: '#fff',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer',
-            }}
+            className="workspace-btn"
+            style={{ minWidth: '120px', border: 'none', cursor: isLoading || !input.trim() ? 'not-allowed' : 'pointer', fontSize: '11px' }}
           >
             Send
           </button>

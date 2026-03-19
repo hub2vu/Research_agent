@@ -1,22 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getDocument, GlobalWorkerOptions, version as pdfjsVersion } from 'pdfjs-dist';
 import ReactMarkdown from 'react-markdown';
-import { executeTool, saveToNotion } from '../lib/mcp';
+import { executeTool, type SaveNotionNotesResult } from '../lib/mcp';
+import NotionSaveModal from '../components/NotionSaveModal';
+import { recordRecentPaper } from '../lib/recentPapers';
 
 // PDF.js worker 설정 - CDN에서 로드 (Vite node_modules 접근 문제 해결)
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.mjs`;
-
-type PdfDoc = {
-  numPages: number;
-  getPage: (pageNumber: number) => Promise<any>;
-  destroy?: () => Promise<void> | void;
-};
-
 type PdfLoadResult = {
   usedId: string;
   url: string;
-  doc: PdfDoc;
 };
 
 interface SectionBoundary {
@@ -102,9 +94,10 @@ async function resolveAndLoadPdf(paperIdRaw: string): Promise<PdfLoadResult> {
     for (const url of urlCandidates) {
       tried.push(url);
       try {
-        const loadingTask: any = getDocument(url);
-        const doc: PdfDoc = await loadingTask.promise;
-        return { usedId: id, url, doc };
+        const response = await fetch(url, { method: 'HEAD' });
+        if (response.ok) {
+          return { usedId: id, url };
+        }
       } catch (err) {
         errors.push(`${url} (${String(err)})`);
       }
@@ -130,7 +123,12 @@ function generateId(): string {
   return `note_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function NotePage(props: { noteId?: string } = {}) {
+interface NotePageProps {
+  noteId?: string;
+  onOpenAccountSettings?: () => void;
+}
+
+export default function NotePage(props: NotePageProps = {}) {
   const params = useParams();
 
   const rawFromRoute = (params as any).paperId ?? '';
@@ -144,11 +142,6 @@ export default function NotePage(props: { noteId?: string } = {}) {
 
   const [usedId, setUsedId] = useState<string>('');
   const [pdfUrl, setPdfUrl] = useState<string>('');
-  const [pdfDoc, setPdfDoc] = useState<PdfDoc | null>(null);
-  const [pageCount, setPageCount] = useState<number>(0);
-
-  const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
-  const pdfDocRef = useRef<PdfDoc | null>(null);
 
   // Resizable panel state
   const [panelRatio, setPanelRatio] = useState<number>(0.6); // left panel ratio (0.3 - 0.8)
@@ -179,7 +172,7 @@ export default function NotePage(props: { noteId?: string } = {}) {
   const [translatingNoteId, setTranslatingNoteId] = useState<string | null>(null);
   const [analyzingNoteId, setAnalyzingNoteId] = useState<string | null>(null);
   const [promptingNoteId, setPromptingNoteId] = useState<string | null>(null);
-  const [savingToNotion, setSavingToNotion] = useState(false);
+  const [isNotionSaveModalOpen, setIsNotionSaveModalOpen] = useState(false);
 
   // Load notes from file system (priority) or localStorage (fallback)
   useEffect(() => {
@@ -304,29 +297,16 @@ export default function NotePage(props: { noteId?: string } = {}) {
     const load = async () => {
       setLoading(true);
       setError(null);
-
-      try {
-        if (pdfDocRef.current?.destroy) await pdfDocRef.current.destroy();
-      } catch {
-        // ignore
-      }
-      pdfDocRef.current = null;
-      setPdfDoc(null);
-      setPageCount(0);
       setPdfUrl('');
       setUsedId('');
 
       try {
         const res = await resolveAndLoadPdf(cleaned);
         if (cancelled) {
-          try { if (res.doc.destroy) await res.doc.destroy(); } catch {}
           return;
         }
-        pdfDocRef.current = res.doc;
         setUsedId(res.usedId);
         setPdfUrl(res.url);
-        setPdfDoc(res.doc);
-        setPageCount(res.doc.numPages);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : String(e));
@@ -340,55 +320,22 @@ export default function NotePage(props: { noteId?: string } = {}) {
 
     return () => {
       cancelled = true;
-      try {
-        if (pdfDocRef.current?.destroy) pdfDocRef.current.destroy();
-      } catch {
-        // ignore
-      }
     };
   }, [paperId]);
 
-  const pages = useMemo(() => Array.from({ length: pageCount }, (_, i) => i + 1), [pageCount]);
-
-  // PDF rendering
   useEffect(() => {
-    if (!pdfDoc || pageCount <= 0) return;
+    const currentPaperId = usedId || normalizeArxivToDoiLike(stripPrefixes(paperId));
+    if (!currentPaperId) {
+      return;
+    }
 
-    let cancelled = false;
-
-    const renderPages = async () => {
-      for (const pageNumber of pages) {
-        if (cancelled) return;
-
-        const page = await pdfDoc.getPage(pageNumber);
-        const viewport = page.getViewport({ scale: 1.2 });
-
-        const canvas = canvasRefs.current[pageNumber - 1];
-        if (!canvas) continue;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) continue;
-
-        const outputScale = window.devicePixelRatio || 1;
-
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = `${Math.floor(viewport.width)}px`;
-        canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-        const transform =
-          outputScale !== 1 ? ([outputScale, 0, 0, outputScale, 0, 0] as [number, number, number, number, number, number]) : undefined;
-
-        await page.render({ canvasContext: ctx, viewport, transform }).promise;
-      }
-    };
-
-    renderPages().catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [pdfDoc, pages, pageCount]);
+    recordRecentPaper({
+      paperId: currentPaperId,
+      title: currentPaperId,
+      venue: 'Notes',
+      route: `/note/${encodeURIComponent(currentPaperId)}`
+    });
+  }, [usedId, paperId]);
 
   // Drag handlers for resizable divider
   const handleDragStart = useCallback((e: React.MouseEvent) => {
@@ -1209,10 +1156,21 @@ ${extractedText.slice(0, 50000)}`;
     }
   }, [usedId, paperId, notes, loadExtractedText, updateNotePage, setActivePage]);
 
+  const notionNotesPayload = useMemo(
+    () => notes.map(n => ({
+      title: n.title || '(Untitled note)',
+      memo: (n.pages.manual || '').trim(),
+      translation: (n.pages.translation || '').trim(),
+      analysis: (n.pages.analysis || '').trim(),
+      qa: (n.pages.qa || '').trim(),
+    })),
+    [notes]
+  );
+
   // Save all notes to Notion
   
 // Save all notes to Notion (multi-note toggle tree)
-const handleSaveToNotion = useCallback(async () => {
+const handleSaveToNotion = useCallback(() => {
   const id = usedId || stripPrefixes(paperId);
   if (!id) {
     alert('논문 ID를 찾을 수 없습니다.');
@@ -1224,8 +1182,22 @@ const handleSaveToNotion = useCallback(async () => {
     return;
   }
 
-  setSavingToNotion(true);
-  try {
+  setIsNotionSaveModalOpen(true);
+}, [usedId, paperId, notes.length]);
+
+const handleNotionSaved = useCallback((result: SaveNotionNotesResult) => {
+  const pageUrl = result.page_url || '';
+  const pageTitle = result.page_title || '';
+  alert(`Notion에 저장되었습니다.\n\n페이지: ${pageTitle}\nURL: ${pageUrl}`);
+  if (pageUrl && confirm('Notion 페이지를 열까요?')) {
+    window.open(pageUrl, '_blank');
+  }
+}, []);
+const handleOpenAccountSettings = useCallback(() => {
+  setIsNotionSaveModalOpen(false);
+  props.onOpenAccountSettings?.();
+}, [props.onOpenAccountSettings]);
+/*
     // Build `notes` payload expected by MCP save_to_notion tool.
     // Each UI note becomes a top-level toggle; each tab becomes a sub-toggle.
     const notionNotes = notes.map(n => ({
@@ -1263,6 +1235,8 @@ const handleSaveToNotion = useCallback(async () => {
     setSavingToNotion(false);
   }
 }, [usedId, paperId, notes]);
+
+*/
 
   return (
     <div ref={containerRef} style={{ display: 'flex', height: '100vh', backgroundColor: '#f5f5f5' }}>
@@ -1319,7 +1293,6 @@ const handleSaveToNotion = useCallback(async () => {
             <div>noteId: {paperId}</div>
             {usedId && <div>usedId: {usedId}</div>}
             {pdfUrl && <div>pdf source: {pdfUrl}</div>}
-            {pageCount > 0 && <div>pages: {pageCount}</div>}
           </div>
         </header>
 
@@ -1341,32 +1314,26 @@ const handleSaveToNotion = useCallback(async () => {
             </pre>
           )}
 
-          {!loading && !error && pageCount === 0 && (
+          {!loading && !error && !pdfUrl && (
             <div style={{ color: '#718096', fontSize: 14 }}>
               PDF 페이지를 찾을 수 없습니다. (/output/{'{paperId}'}/paper.pdf 또는 /pdf/{'{paperId}'}.pdf 확인)
             </div>
           )}
 
-          {!loading && !error && pageCount > 0 && (
+          {!loading && !error && pdfUrl && (
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-              {pages.map((pageNumber) => (
-                <div key={`page-${pageNumber}`} style={{ marginBottom: 18 }}>
-                  <div style={{ fontWeight: 700, margin: '8px 0 10px', color: '#2d3748' }}>Page {pageNumber}</div>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <canvas
-                      ref={(el) => {
-                        canvasRefs.current[pageNumber - 1] = el;
-                      }}
-                      style={{
-                        maxWidth: '100%',
-                        borderRadius: 8,
-                        border: '1px solid #edf2f7',
-                        background: '#fff'
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+              <div style={{ fontWeight: 700, margin: '0 0 10px', color: '#2d3748' }}>Embedded PDF</div>
+              <iframe
+                src={pdfUrl}
+                title={`paper-${usedId || paperId}`}
+                style={{
+                  width: '100%',
+                  minHeight: '72vh',
+                  borderRadius: 8,
+                  border: '1px solid #edf2f7',
+                  background: '#fff'
+                }}
+              />
             </div>
           )}
         </div>
@@ -1424,20 +1391,20 @@ const handleSaveToNotion = useCallback(async () => {
             </button>
             <button
               onClick={handleSaveToNotion}
-              disabled={savingToNotion || notes.length === 0}
+              disabled={notes.length === 0}
               style={{
                 padding: '5px 10px',
                 borderRadius: 6,
                 border: '1px solid #e2e8f0',
-                backgroundColor: savingToNotion ? '#edf2f7' : '#faf5ff',
-                color: savingToNotion ? '#a0aec0' : '#6b46c1',
-                cursor: savingToNotion || notes.length === 0 ? 'not-allowed' : 'pointer',
+                backgroundColor: notes.length === 0 ? '#edf2f7' : '#faf5ff',
+                color: notes.length === 0 ? '#a0aec0' : '#6b46c1',
+                cursor: notes.length === 0 ? 'not-allowed' : 'pointer',
                 fontSize: 12,
                 fontWeight: 600,
               }}
               title="현재 노트를 Notion에 저장합니다"
             >
-              {savingToNotion ? '저장 중...' : 'Notion에 저장'}
+              Notion에 저장
             </button>
             <button
               onClick={addNote}
@@ -1911,6 +1878,15 @@ const handleSaveToNotion = useCallback(async () => {
           </div>
         </div>
       </div>
+      <NotionSaveModal
+        isOpen={isNotionSaveModalOpen}
+        paperId={usedId || stripPrefixes(paperId)}
+        paperTitle={usedId || stripPrefixes(paperId)}
+        notes={notionNotesPayload}
+        onClose={() => setIsNotionSaveModalOpen(false)}
+        onOpenAccountSettings={handleOpenAccountSettings}
+        onSaved={handleNotionSaved}
+      />
     </div>
   );
 }

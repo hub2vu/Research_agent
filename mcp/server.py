@@ -9,18 +9,35 @@ Tools are automatically discovered via registry.py
 import logging
 import os
 from contextlib import asynccontextmanager
+from html import escape
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pathlib import Path
 import json
 import uuid
 from datetime import datetime
+from runtime.service_config import (
+    get_service_config_path,
+    load_service_config,
+    sanitize_service_config_for_api,
+    update_service_config,
+)
 
 # 새로 만든 도구 임포트
+from .tools.notion import (
+    NotionConnectionError,
+    complete_notion_oauth,
+    disconnect_notion,
+    get_notion_status,
+    list_notion_pages,
+    save_notes_to_notion,
+    search_notion_pages,
+    start_notion_oauth,
+)
 from .tools.page_analyzer import interpret_paper_page
 from .registry import (
     execute_tool,
@@ -212,114 +229,197 @@ OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "/data/output"))
 STATUS_DIR = OUTPUT_DIR / "agent_status"
 STATUS_DIR.mkdir(parents=True, exist_ok=True)
 
-# .env management (best-effort; primarily for local/dev)
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DOTENV_PATH = Path(os.getenv("DOTENV_PATH", str(PROJECT_ROOT / ".env")))
-
-
-def _read_dotenv(path: Path) -> Dict[str, str]:
-    if not path.exists():
-        return {}
-    data: Dict[str, str] = {}
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            s = line.strip()
-            if not s or s.startswith("#") or "=" not in s:
-                continue
-            k, v = s.split("=", 1)
-            v = v.strip()
-            # Remove surrounding quotes if present (handles "value" or 'value')
-            if len(v) >= 2 and ((v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'"))):
-                v = v[1:-1]
-            data[k.strip()] = v
-    except Exception as e:
-        logger.warning(f"Failed to read .env at {path}: {e}")
-    return data
-
-
-def _write_dotenv(path: Path, updates: Dict[str, str]) -> None:
-    """
-    Update (or append) keys in .env while preserving other lines best-effort.
-    Writes UTF-8.
-    """
-    lines: List[str] = []
-    existing = {}
-    if path.exists():
-        lines = path.read_text(encoding="utf-8").splitlines()
-    else:
-        # ensure parent exists
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-        except Exception:
-            pass
-
-    # index existing keys
-    key_to_idx: Dict[str, int] = {}
-    for i, line in enumerate(lines):
-        s = line.strip()
-        if not s or s.startswith("#") or "=" not in s:
-            continue
-        k, _ = s.split("=", 1)
-        k = k.strip()
-        key_to_idx[k] = i
-
-    # apply updates
-    for k, v in updates.items():
-        new_line = f"{k}={v}"
-        if k in key_to_idx:
-            lines[key_to_idx[k]] = new_line
-        else:
-            lines.append(new_line)
-
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
-
-
 class DiscordConfigRequest(BaseModel):
     discord_webhook_full: str = ""
     discord_webhook_summary: str = ""
 
 
+class ServiceCredentialsRequest(BaseModel):
+    openai_api_key: str = ""
+    tavily_api_key: str = ""
+
+
+class NotionSaveRequest(BaseModel):
+    paper_id: str
+    paper_title: str
+    notes: List[Dict[str, Any]]
+    target_page_id: str
+    destination_title: str = ""
+    create_new_page: bool = True
+    updated_at: str = ""
+
+
+def _render_notion_popup_result(frontend_origin: str, success: bool, message: str) -> HTMLResponse:
+    payload = {
+        "type": "notion-oauth-complete",
+        "success": success,
+        "message": message,
+    }
+    payload_json = json.dumps(payload, ensure_ascii=False)
+    escaped_origin = escape(frontend_origin or "*")
+    escaped_message = escape(message)
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Notion Connection</title>
+  </head>
+  <body style="font-family: sans-serif; background: #111827; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0;">
+    <div style="padding: 24px; border-radius: 16px; background: #1f2937; width: min(92vw, 420px); text-align: center;">
+      <h1 style="margin: 0 0 12px; font-size: 20px;">{escape('Notion connected' if success else 'Notion connection failed')}</h1>
+      <p style="margin: 0; color: #cbd5e1; line-height: 1.6;">{escaped_message}</p>
+    </div>
+    <script>
+      const payload = {payload_json};
+      if (window.opener) {{
+        window.opener.postMessage(payload, {json.dumps(frontend_origin or "*")});
+      }}
+      setTimeout(() => window.close(), 150);
+    </script>
+  </body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+@app.get("/config/credentials")
+async def get_service_credentials():
+    config = sanitize_service_config_for_api(load_service_config())
+    return {
+        "success": True,
+        "settings_path": str(get_service_config_path()),
+        "openai_api_key": config["openai_api_key"],
+        "tavily_api_key": config["tavily_api_key"],
+    }
+
+
+@app.post("/config/credentials")
+async def update_service_credentials(req: ServiceCredentialsRequest):
+    config = sanitize_service_config_for_api(update_service_config(req.model_dump()))
+    return {
+        "success": True,
+        "settings_path": str(get_service_config_path()),
+        "openai_api_key": config["openai_api_key"],
+        "tavily_api_key": config["tavily_api_key"],
+    }
+
+
+@app.get("/notion/status")
+async def notion_status():
+    return {
+        "success": True,
+        "settings_path": str(get_service_config_path()),
+        **get_notion_status(),
+    }
+
+
+@app.get("/notion/oauth/start")
+async def notion_oauth_start(public_base_url: str, frontend_origin: str):
+    try:
+        oauth = await start_notion_oauth(public_base_url=public_base_url, frontend_origin=frontend_origin)
+    except NotionConnectionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RedirectResponse(url=oauth["authorization_url"], status_code=307)
+
+
+@app.get("/notion/oauth/callback")
+async def notion_oauth_callback(
+    state: str = "",
+    code: str = "",
+    error: str = "",
+    error_description: str = "",
+):
+    if error:
+        return _render_notion_popup_result(
+            frontend_origin="*",
+            success=False,
+            message=error_description or error,
+        )
+
+    try:
+        result = await complete_notion_oauth(state=state, code=code)
+        frontend_origin = result.get("frontend_origin") or "*"
+        message = "Your Notion workspace is now connected."
+        return _render_notion_popup_result(frontend_origin=frontend_origin, success=True, message=message)
+    except NotionConnectionError as exc:
+        return _render_notion_popup_result(frontend_origin="*", success=False, message=str(exc))
+
+
+@app.post("/notion/disconnect")
+async def notion_disconnect():
+    return {
+        "success": True,
+        **disconnect_notion(),
+    }
+
+
+@app.get("/notion/pages/search")
+async def notion_pages_search(query: str = "", limit: int = Query(default=20, ge=1, le=50)):
+    try:
+        result = await search_notion_pages(query=query, limit=limit)
+    except NotionConnectionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "success": True,
+        **result,
+    }
+
+
+@app.get("/notion/pages")
+async def notion_pages_list(limit: int = Query(default=10, ge=1, le=50)):
+    try:
+        result = await list_notion_pages(limit=limit)
+    except NotionConnectionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "success": True,
+        **result,
+    }
+
+
+@app.post("/notion/save")
+async def notion_save(request: NotionSaveRequest):
+    try:
+        result = await save_notes_to_notion(
+            paper_id=request.paper_id,
+            paper_title=request.paper_title,
+            notes=request.notes,
+            target_page_id=request.target_page_id,
+            destination_title=request.destination_title,
+            create_new_page=request.create_new_page,
+            updated_at=request.updated_at,
+        )
+    except NotionConnectionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "success": True,
+        **result,
+    }
+
+
 @app.get("/config/discord")
 async def get_discord_config():
-    """
-    Returns Discord webhook URLs from process env, falling back to .env file if present.
-    Always reads .env file to ensure values are loaded even if process env is empty.
-    """
-    # Always read .env file first to ensure values are loaded
-    dotenv = _read_dotenv(DOTENV_PATH)
-    
-    # Get from process env, fallback to .env file
-    full = os.getenv("DISCORD_WEBHOOK_FULL", "") or dotenv.get("DISCORD_WEBHOOK_FULL", "")
-    summary = os.getenv("DISCORD_WEBHOOK_SUMMARY", "") or dotenv.get("DISCORD_WEBHOOK_SUMMARY", "")
+    config = load_service_config()
 
     return {
         "success": True,
-        "dotenv_path": str(DOTENV_PATH),
-        "discord_webhook_full": full,
-        "discord_webhook_summary": summary,
+        "settings_path": str(get_service_config_path()),
+        "discord_webhook_full": config["discord_webhook_full"],
+        "discord_webhook_summary": config["discord_webhook_summary"],
     }
 
 
 @app.post("/config/discord")
 async def update_discord_config(req: DiscordConfigRequest):
-    """
-    Update .env with Discord webhook URLs and also update current process env
-    (so running server can use the new values without restart).
-    """
-    updates = {
-        "DISCORD_WEBHOOK_FULL": (req.discord_webhook_full or "").strip(),
-        "DISCORD_WEBHOOK_SUMMARY": (req.discord_webhook_summary or "").strip(),
+    config = update_service_config({
+        "discord_webhook_full": req.discord_webhook_full,
+        "discord_webhook_summary": req.discord_webhook_summary,
+    })
+    return {
+        "success": True,
+        "settings_path": str(get_service_config_path()),
+        "discord_webhook_full": config["discord_webhook_full"],
+        "discord_webhook_summary": config["discord_webhook_summary"],
     }
-    try:
-        _write_dotenv(DOTENV_PATH, updates)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to write .env: {e}")
-
-    # Update runtime environment for immediate use
-    os.environ["DISCORD_WEBHOOK_FULL"] = updates["DISCORD_WEBHOOK_FULL"]
-    os.environ["DISCORD_WEBHOOK_SUMMARY"] = updates["DISCORD_WEBHOOK_SUMMARY"]
-
-    return {"success": True, "dotenv_path": str(DOTENV_PATH), **updates}
 
 
 # [리포트 조회 기능]

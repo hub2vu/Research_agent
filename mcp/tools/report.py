@@ -13,6 +13,7 @@ from ..base import MCPTool, ToolParameter
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logs.llm_logger import get_logger as get_llm_logger, SummaryType
+from runtime.service_config import build_async_openai_client
 
 # PDF 라이브러리
 try:
@@ -22,12 +23,15 @@ except ImportError:
 
 logger = logging.getLogger("mcp.tools.report")
 logger.setLevel(logging.INFO)
-aclient = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # 경로 설정
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/output"))
 PDF_DIR = Path(os.getenv("PDF_DIR", "data/pdf"))
 NEURIPS_DIR = PDF_DIR / "neurips2025"
+
+
+def _get_client() -> AsyncOpenAI:
+    return build_async_openai_client()
 
 
 class GetReportTool(MCPTool):
@@ -210,7 +214,7 @@ class GenerateReportTool(MCPTool):
             """
 
             start_time = time.time()
-            response = await aclient.chat.completions.create(
+            response = await _get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,

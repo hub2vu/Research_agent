@@ -32,14 +32,14 @@ export default function GraphCanvas({
 }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const simulationRef = useRef<d3.Simulation<any, any> | null>(null);
+  const simulationRef = useRef<any>(null);
   const stopTimerRef = useRef<number | null>(null);
 
-  const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
-  const zoomSelectionRef = useRef<d3.Selection<SVGSVGElement, unknown, null, undefined> | null>(null);
-  const zoomTransformRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const zoomBehaviorRef = useRef<any>(null);
+  const zoomSelectionRef = useRef<any>(null);
+  const zoomTransformRef = useRef<any>(d3.zoomIdentity);
 
-  const nodeSelectionRef = useRef<d3.Selection<SVGGElement, any, SVGGElement, unknown> | null>(null);
+  const nodeSelectionRef = useRef<any>(null);
   const posCacheRef = useRef<Map<string, { x?: number; y?: number; vx?: number; vy?: number }>>(new Map());
 
   const nodeColorMapRef = useRef<Record<string, string>>(nodeColorMap ?? {});
@@ -112,7 +112,7 @@ export default function GraphCanvas({
 
     const svg = d3.select(svgRef.current);
     if (!zoomBehaviorRef.current) {
-      const zoom = d3.zoom<SVGSVGElement, unknown>().scaleExtent([0.1, 4]).on('zoom', e => {
+      const zoom = d3.zoom().scaleExtent([0.1, 4]).on('zoom', (e: any) => {
         zoomTransformRef.current = e.transform;
         svg.select('g.canvas-root').attr('transform', e.transform.toString());
       });
@@ -143,8 +143,8 @@ export default function GraphCanvas({
 
     if (clusterCenters) {
       simulation
-        .force('clusterX', d3.forceX<any>(d => clusterCenters[d.cluster]?.x ?? width / 2).strength(clusterStrength))
-        .force('clusterY', d3.forceY<any>(d => clusterCenters[d.cluster]?.y ?? height / 2).strength(clusterStrength));
+        .force('clusterX', d3.forceX((d: any) => clusterCenters[d.cluster]?.x ?? width / 2).strength(clusterStrength))
+        .force('clusterY', d3.forceY((d: any) => clusterCenters[d.cluster]?.y ?? height / 2).strength(clusterStrength));
     }
 
     simulationRef.current = simulation;
@@ -159,16 +159,16 @@ export default function GraphCanvas({
     const node = container.append('g').attr('class', 'nodes')
       .selectAll('g').data(graphNodes).enter().append('g')
       .style('cursor', 'pointer')
-      .call(d3.drag<any, any>()
-        .on('start', (e, d) => { simulation.alphaTarget(0).stop(); d.fx = d.x; d.fy = d.y; })
-        .on('drag', (e, d) => {
+      .call(d3.drag()
+        .on('start', (e: any, d: any) => { simulation.alphaTarget(0).stop(); d.fx = d.x; d.fy = d.y; })
+        .on('drag', (e: any, d: any) => {
           d.fx = e.x; d.fy = e.y;
           d3.select(e.sourceEvent.target.parentNode).attr('transform', `translate(${e.x},${e.y})`);
           link
             .attr('x1', (l: any) => l.source.x).attr('y1', (l: any) => l.source.y)
             .attr('x2', (l: any) => l.target.x).attr('y2', (l: any) => l.target.y);
         })
-        .on('end', (e, d) => { if (mode !== 'paper' || d.id !== centerId) { d.fx = null; d.fy = null; } })
+        .on('end', (_e: any, d: any) => { if (mode !== 'paper' || d.id !== centerId) { d.fx = null; d.fy = null; } })
       );
     nodeSelectionRef.current = node as any;
 

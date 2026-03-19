@@ -1,22 +1,9 @@
-/**
- * SidePanel Component
- *
- * Displays detailed information about a selected paper.
- * Used in both GlobalGraphPage and PaperGraphPage.
- *
- * [UPDATED]
- * - Node color override uses stableKey (if exists) for persistence
- * - arXiv link robust: tries node.id first, then node.title
- * - Keep backward compatibility with existing props
- */
-
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GraphNode } from '../lib/mcp';
 import PaperCard from './PaperCard';
 import ReportViewer from './ReportViewer';
-import { useNavigate } from 'react-router-dom';
-
-/* ----------------------- Helper: stable key ---------------------- */
+import './workspaceTheme.css';
 
 function nodeKeyOf(node: any): string {
   return String(node?.stableKey ?? node?.id ?? '');
@@ -26,87 +13,66 @@ function stripNotePrefix(id: string): string {
   return String(id ?? '').replace(/^(paper:|ref:)/i, '');
 }
 
-/* ----------------------- Helper: arXiv link ---------------------- */
-
 function extractArxivId(raw: string): string | null {
-  if (!raw) return null;
-  let s = String(raw).trim();
-
-  // URL 형태면 ID만 추출
-  const urlMatch = s.match(/arxiv\.org\/(?:abs|pdf)\/([^?#]+?)(?:\.pdf)?/i);
-  if (urlMatch?.[1]) s = urlMatch[1];
-
-  // 접두 제거
-  s = s.replace(/^arxiv:\s*/i, '');
-
-  // DOI-like: 10.48550_arxiv.<id>
-  s = s.replace(/^10\.48550[_\/]arxiv\./i, '');
-
-  // 구형 ID underscore 포맷 정규화
-  // cs_AI_0112017v1 -> cs.AI/0112017v1
-  if (/^[a-z\-]+_[A-Z]{2}_\d{7}(v\d+)?$/.test(s)) {
-    const parts = s.split('_');
-    if (parts.length >= 3) s = `${parts[0]}.${parts[1]}/${parts.slice(2).join('_')}`;
-  } else if (/^[a-z\-]+_[A-Z]{2}\/\d{7}(v\d+)?$/.test(s)) {
-    const i = s.indexOf('_');
-    s = s.slice(0, i) + '.' + s.slice(i + 1);
+  if (!raw) {
+    return null;
   }
 
-  const modern = /^\d{4}\.\d{4,5}(v\d+)?$/;          // 2506.07976v2
-  const old = /^[a-z\-]+\.[A-Z]{2}\/\d{7}(v\d+)?$/; // cs.AI/0112017v1
+  let value = String(raw).trim();
+  const urlMatch = value.match(/arxiv\.org\/(?:abs|pdf)\/([^?#]+?)(?:\.pdf)?/i);
+  if (urlMatch?.[1]) {
+    value = urlMatch[1];
+  }
 
-  if (modern.test(s) || old.test(s)) return s;
-  return null;
+  value = value.replace(/^arxiv:\s*/i, '');
+  value = value.replace(/^10\.48550[_/]arxiv\./i, '');
+
+  if (/^[a-z\-]+_[A-Z]{2}_\d{7}(v\d+)?$/.test(value)) {
+    const parts = value.split('_');
+    if (parts.length >= 3) {
+      value = `${parts[0]}.${parts[1]}/${parts.slice(2).join('_')}`;
+    }
+  } else if (/^[a-z\-]+_[A-Z]{2}\/\d{7}(v\d+)?$/.test(value)) {
+    const idx = value.indexOf('_');
+    value = `${value.slice(0, idx)}.${value.slice(idx + 1)}`;
+  }
+
+  const modern = /^\d{4}\.\d{4,5}(v\d+)?$/;
+  const old = /^[a-z\-]+\.[A-Z]{2}\/\d{7}(v\d+)?$/;
+  return modern.test(value) || old.test(value) ? value : null;
 }
 
 function getArxivAbsUrlFromNode(node: any): string | null {
-  // 1) id에서 먼저 찾고
   const byId = extractArxivId(String(node?.id ?? ''));
-  if (byId) return `https://arxiv.org/abs/${byId}`;
+  if (byId) {
+    return `https://arxiv.org/abs/${byId}`;
+  }
 
-  // 2) title에서도 찾는다 (ref:* 노드 대비)
   const byTitle = extractArxivId(String(node?.title ?? ''));
-  if (byTitle) return `https://arxiv.org/abs/${byTitle}`;
-
-  return null;
+  return byTitle ? `https://arxiv.org/abs/${byTitle}` : null;
 }
 
-/* ---------------------- Helper: color ---------------------- */
+const PRESET_COLORS = ['#7c9885', '#cc5833', '#c88a4d', '#7287a6', '#8f584a', '#547a74', '#a06c5d', '#44636c', '#1a1a1a', '#6b7280'];
 
-const PRESET_COLORS = [
-  '#4299e1', '#48bb78', '#ed8936', '#9f7aea',
-  '#f56565', '#38b2ac', '#ed64a6', '#667eea',
-  '#1a202c', '#718096'
-];
-
-function isHexColor(v: unknown): v is string {
-  return typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v);
+function isHexColor(value: unknown): value is string {
+  return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
 }
-
-/* ----------------------------- Props ----------------------------- */
 
 interface SidePanelProps {
   selectedNode: GraphNode | null;
   onClose: () => void;
-
-  // 기존 페이지에서 쓰는 액션(있을 수도/없을 수도)
   onExpand?: (node: GraphNode) => void;
   onNavigate?: (node: GraphNode) => void;
-
-  // 페이지에서 넘기고 있을 수 있어서 남겨둠(사용 안 함)
   onAction?: () => void;
-
   mode?: 'global' | 'paper' | 'neurips';
   isLoading?: boolean;
-
-  // nodeKey(stableKey 우선) -> color
   nodeColorMap?: Record<string, string>;
   nodeColor?: string;
   onNodeColorChange?: (nodeKey: string, color: string) => void;
   onNodeColorReset?: (nodeKey: string) => void;
-
-  // Extra content to render (for custom pages like NeurIPS)
   extraContent?: React.ReactNode;
+  layoutMode?: 'fixed' | 'docked';
+  panelWidth?: number | string;
 }
 
 export default function SidePanel({
@@ -120,132 +86,109 @@ export default function SidePanel({
   nodeColor,
   onNodeColorChange,
   onNodeColorReset,
-  extraContent
+  extraContent,
+  layoutMode = 'fixed',
+  panelWidth = 320,
 }: SidePanelProps) {
-  if (!selectedNode) return null;
-
   const navigate = useNavigate();
-  const selectedIsCenter = Boolean((selectedNode as any).is_center || (selectedNode as any).isCenter);
-  const arxivUrl = getArxivAbsUrlFromNode(selectedNode);
-
-  // ✅ stableKey 우선 키
-  const selectedKey = useMemo(() => nodeKeyOf(selectedNode as any), [selectedNode]);
-  const noteId = useMemo(() => {
-    const raw = selectedKey || selectedNode.id;
-    const cleaned = stripNotePrefix(raw);
-    return encodeURIComponent(cleaned);
-  }, [selectedKey, selectedNode.id]);
-  const currentColor = useMemo(() => {
-    // 1) 상위에서 직접 주는 값이 있으면 그거 우선
-    if (isHexColor(nodeColor)) return nodeColor;
-
-    // 2) stableKey 기반 조회
-    const byKey = nodeColorMap?.[selectedKey];
-    if (isHexColor(byKey)) return byKey;
-
-    // 3) backward compat: 예전엔 id로 저장했을 수 있음
-    const byId = nodeColorMap?.[selectedNode.id];
-    if (isHexColor(byId)) return byId;
-
-    // 4) default
-    return '#4299e1';
-  }, [nodeColor, nodeColorMap, selectedKey, selectedNode.id]);
-
-  const canEditColor = Boolean(onNodeColorChange || onNodeColorReset);
   const [showNodeColor, setShowNodeColor] = useState(true);
-  const emitColorChange = (color: string) => {
-    if (!onNodeColorChange) return;
-    if (!isHexColor(color)) return;
-    onNodeColorChange(selectedKey, color);
-  };
 
-  const emitColorReset = () => {
-    if (!onNodeColorReset) return;
-    onNodeColorReset(selectedKey);
-  };
+  const selectedKey = useMemo(() => nodeKeyOf(selectedNode), [selectedNode]);
+  const noteId = useMemo(() => encodeURIComponent(stripNotePrefix(selectedKey || selectedNode?.id || '')), [selectedKey, selectedNode?.id]);
+  const arxivUrl = useMemo(() => (selectedNode ? getArxivAbsUrlFromNode(selectedNode) : null), [selectedNode]);
+  const selectedIsCenter = Boolean((selectedNode as any)?.is_center || (selectedNode as any)?.isCenter);
+  const currentColor = useMemo(() => {
+    if (isHexColor(nodeColor)) {
+      return nodeColor;
+    }
+
+    const mapped = nodeColorMap?.[selectedKey] || (selectedNode ? nodeColorMap?.[selectedNode.id] : undefined);
+    return isHexColor(mapped) ? mapped : '#7c9885';
+  }, [nodeColor, nodeColorMap, selectedKey, selectedNode]);
+
+  const dockedFlexBasis = typeof panelWidth === 'number' ? `${panelWidth}px` : panelWidth;
+  const panelLayoutStyle =
+    layoutMode === 'docked'
+      ? {
+          position: 'relative' as const,
+          flex: `0 0 ${dockedFlexBasis}`,
+          width: panelWidth,
+          minWidth: panelWidth,
+          height: '100%',
+          alignSelf: 'stretch' as const,
+        }
+      : {
+          position: 'fixed' as const,
+          top: 0,
+          right: 0,
+          width: panelWidth,
+          height: '100vh',
+        };
+
+  if (!selectedNode) {
+    return null;
+  }
 
   return (
     <div
+      className="workspace-side-drawer"
       style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        width: '320px',
-        height: '100vh',
-        backgroundColor: '#fff',
-        borderLeft: '1px solid #e2e8f0',
-        boxShadow: '-4px 0 12px rgba(0, 0, 0, 0.08)',
+        ...panelLayoutStyle,
         display: 'flex',
         flexDirection: 'column',
-        zIndex: 9999
+        zIndex: 999,
       }}
     >
-      {/* Header */}
       <div
         style={{
-          padding: '16px',
-          borderBottom: '1px solid #e2e8f0',
+          padding: '18px 20px',
+          borderBottom: '1px solid rgba(46, 64, 54, 0.08)',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'flex-start',
+          gap: '14px',
         }}
       >
-        <h3 style={{ margin: 0, fontSize: '14px', color: '#4a5568' }}>Paper Details</h3>
+        <div>
+          <div className="workspace-kicker">Paper Side Panel</div>
+          <div className="workspace-title" style={{ fontSize: '24px', marginTop: '4px' }}>Paper details</div>
+        </div>
         <button
           onClick={onClose}
-          style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '18px',
-            cursor: 'pointer',
-            color: '#a0aec0',
-            lineHeight: 1
-          }}
+          className="workspace-ghost-btn workspace-dismiss-btn"
           aria-label="Close"
         >
-          ×
+          X
         </button>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+      <div className="workspace-scroll" style={{ padding: '18px 20px', flex: 1 }}>
+        <div className="workspace-list-card" style={{ padding: '14px' }}>
+          <PaperCard node={selectedNode} />
+        </div>
 
-        <PaperCard node={selectedNode} />
+        <div className="workspace-list-card" style={{ padding: '14px', marginTop: '14px' }}>
+          <div className="workspace-section-label">Saved report</div>
+          <ReportViewer key={selectedNode.id} paperId={selectedNode.id} />
+        </div>
 
-        <ReportViewer key={selectedNode.id} paperId={selectedNode.id} />
-
-        {/* -------- Actions -------- */}
-        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
+        <div className="workspace-mobile-stack" style={{ marginTop: '16px' }}>
           <button
             onClick={() => navigate(`/note/${noteId}`)}
-            style={{
-              padding: '10px 16px',
-              backgroundColor: '#111827',
-              color: '#fff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
+            className="workspace-btn"
+            style={{ border: 'none', padding: '11px 14px', cursor: 'pointer', fontSize: '11px' }}
           >
-            Open Note ✎
+            Open Note
           </button>
 
           {mode === 'global' && onNavigate && (
             <button
               onClick={() => onNavigate(selectedNode)}
               disabled={isLoading}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: '#4299e1',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.7 : 1
-              }}
+              className="workspace-btn-secondary"
+              style={{ border: 'none', padding: '11px 14px', cursor: isLoading ? 'not-allowed' : 'pointer', fontSize: '11px' }}
             >
-              View Reference Graph →
+              View Reference Graph
             </button>
           )}
 
@@ -253,15 +196,8 @@ export default function SidePanel({
             <button
               onClick={() => onExpand(selectedNode)}
               disabled={isLoading}
-              style={{
-                padding: '10px 16px',
-                backgroundColor: '#48bb78',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.7 : 1
-              }}
+              className="workspace-btn-secondary"
+              style={{ border: 'none', padding: '11px 14px', cursor: isLoading ? 'not-allowed' : 'pointer', fontSize: '11px' }}
             >
               {isLoading ? 'Expanding...' : 'Expand References'}
             </button>
@@ -272,177 +208,117 @@ export default function SidePanel({
               href={arxivUrl}
               target="_blank"
               rel="noopener noreferrer"
-              style={{
-                padding: '10px 16px',
-                backgroundColor: '#f7fafc',
-                color: '#4a5568',
-                border: '1px solid #e2e8f0',
-                borderRadius: '6px',
-                textAlign: 'center',
-                textDecoration: 'none'
-              }}
+              className="workspace-btn-secondary"
+              style={{ padding: '11px 14px', textDecoration: 'none', fontSize: '11px' }}
             >
-              View on arXiv ↗
+              View on arXiv
             </a>
           )}
         </div>
-        
 
-        {/* Extra content (for custom pages like NeurIPS) */}
         {extraContent}
-        {/* -------- Node Color Controls (맨 아래) -------- */}
-        <div
-          style={{
-            marginTop: '16px',
-            paddingTop: '14px',
-            borderTop: '1px solid #edf2f7'
-          }}
-        >
-          {/* 헤더: 토글 버튼(왼쪽) + 섹션명 */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button
-                onClick={() => setShowNodeColor(v => !v)}
-                aria-label={showNodeColor ? 'Collapse node color section' : 'Expand node color section'}
-                title={showNodeColor ? 'Collapse' : 'Expand'}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 6,
-                  border: '1px solid #e2e8f0',
-                  background: '#f7fafc',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  lineHeight: 1,
-                  fontSize: 12,
-                  color: '#2d3748'
-                }}
-              >
-                {showNodeColor ? '▾' : '▸'}
-              </button>
 
-              <div style={{ fontSize: '12px', color: '#718096', fontWeight: 600 }}>
-                Node color
-              </div>
+        <div className="workspace-panel-rule" style={{ marginTop: '18px', paddingTop: '18px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+            <div>
+              <div className="workspace-section-label">Node color</div>
+              <div className="workspace-subtle" style={{ fontSize: '12px' }}>Persist the node accent in the graph.</div>
             </div>
-
-            {!canEditColor && (
-              <div style={{ fontSize: '11px', color: '#a0aec0' }}>
-                (connect callbacks)
-              </div>
-            )}
+            <button
+              onClick={() => setShowNodeColor((current) => !current)}
+              className="workspace-ghost-btn"
+              style={{ border: 'none', padding: '8px 12px', cursor: 'pointer', fontSize: '11px' }}
+            >
+              {showNodeColor ? 'Collapse' : 'Expand'}
+            </button>
           </div>
 
-          {/* 본문: showNodeColor일 때만 표시 */}
           {showNodeColor && (
             <>
-              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="workspace-mobile-stack" style={{ marginTop: '12px', alignItems: 'center' }}>
                 <input
                   type="color"
                   value={currentColor}
                   disabled={!onNodeColorChange}
-                  onChange={(e) => emitColorChange(e.target.value)}
-                  style={{
-                    width: 42,
-                    height: 34,
-                    padding: 0,
-                    border: 'none',
-                    background: 'transparent',
-                    cursor: onNodeColorChange ? 'pointer' : 'not-allowed'
+                  onChange={(event) => {
+                    if (isHexColor(event.target.value)) {
+                      onNodeColorChange?.(selectedKey, event.target.value);
+                    }
                   }}
-                  aria-label="Pick node color"
+                  className="workspace-color-input"
+                  style={{
+                    width: '52px',
+                    height: '40px',
+                    padding: '4px',
+                    borderRadius: '14px',
+                    cursor: onNodeColorChange ? 'pointer' : 'not-allowed',
+                  }}
                 />
-
                 <input
                   type="text"
                   value={currentColor}
                   disabled={!onNodeColorChange}
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    if (isHexColor(v)) emitColorChange(v);
+                  onChange={(event) => {
+                    const value = event.target.value.trim();
+                    if (isHexColor(value)) {
+                      onNodeColorChange?.(selectedKey, value);
+                    }
                   }}
-                  style={{
-                    flex: 1,
-                    padding: '8px 10px',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    color: '#2d3748'
-                  }}
+                  className="workspace-input"
                   placeholder="#RRGGBB"
+                  style={{ flex: 1, padding: '12px 14px', fontSize: '13px' }}
                 />
-
                 <button
+                  onClick={() => onNodeColorReset?.(selectedKey)}
                   disabled={!onNodeColorReset}
-                  onClick={emitColorReset}
-                  style={{
-                    padding: '8px 10px',
-                    borderRadius: 6,
-                    border: '1px solid #e2e8f0',
-                    background: '#f7fafc',
-                    cursor: onNodeColorReset ? 'pointer' : 'not-allowed',
-                    fontSize: 12,
-                    color: '#4a5568',
-                    opacity: onNodeColorReset ? 1 : 0.6
-                  }}
+                  className="workspace-btn-secondary"
+                  style={{ border: 'none', padding: '12px 14px', cursor: onNodeColorReset ? 'pointer' : 'not-allowed', fontSize: '11px' }}
                 >
                   Reset
                 </button>
               </div>
 
-              <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
-                {PRESET_COLORS.map((c) => (
+              <div className="workspace-mobile-stack" style={{ marginTop: '12px' }}>
+                {PRESET_COLORS.map((color) => (
                   <button
-                    key={c}
+                    key={color}
+                    onClick={() => onNodeColorChange?.(selectedKey, color)}
                     disabled={!onNodeColorChange}
-                    onClick={() => emitColorChange(c)}
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 999,
-                      border:
-                        c.toLowerCase() === currentColor.toLowerCase()
-                          ? '2px solid #2d3748'
-                          : '1px solid #e2e8f0',
-                      background: c,
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '999px',
+                      border: color.toLowerCase() === currentColor.toLowerCase() ? '2px solid #1a1a1a' : '1px solid rgba(46, 64, 54, 0.14)',
+                      background: color,
                       cursor: onNodeColorChange ? 'pointer' : 'not-allowed',
-                      opacity: onNodeColorChange ? 1 : 0.6
                     }}
-                    aria-label={`Set color ${c}`}
-                    title={c}
+                    aria-label={`Set node color ${color}`}
                   />
                 ))}
               </div>
 
-              <div style={{ marginTop: 6, fontSize: 11, color: '#a0aec0' }}>
-                Key: <code>{selectedKey}</code>
+              <div className="workspace-kicker" style={{ marginTop: '12px', letterSpacing: '0.12em' }}>
+                Key {selectedKey}
               </div>
             </>
           )}
         </div>
-
       </div>
 
-
-      {/* Loading indicator (footer 위로 올려서 토글이 맨 아래에 위치) */}
       {isLoading && (
         <div
           style={{
-            padding: '12px 16px',
-            borderTop: '1px solid #e2e8f0',
+            padding: '12px 20px',
+            borderTop: '1px solid rgba(46, 64, 54, 0.08)',
+            background: 'rgba(204, 88, 51, 0.08)',
+            color: '#9b3c1f',
             fontSize: '12px',
-            color: '#2b6cb0',
-            backgroundColor: '#ebf8ff'
+            fontFamily: 'JetBrains Mono, monospace',
           }}
         >
           Processing...
         </div>
       )}
-
-
-
     </div>
   );
 }

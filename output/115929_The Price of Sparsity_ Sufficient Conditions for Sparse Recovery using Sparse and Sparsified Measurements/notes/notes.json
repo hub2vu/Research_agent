@@ -1,0 +1,439 @@
+{
+  "notes": [
+    {
+      "id": "note_1773318650847_9lrggr",
+      "title": "Abstract",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 353,
+        "endIndex": 1790,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_ep1vcm",
+      "title": "1 Introduction",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 1790,
+        "endIndex": 4107,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_tu22in",
+      "title": "1.1 Sparse measurement setting",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 4107,
+        "endIndex": 9142,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_r7krjm",
+      "title": "1.2 Sparsification",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 9142,
+        "endIndex": 12065,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_vlfner",
+      "title": "1.3 Contributions",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 12065,
+        "endIndex": 12411,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_xl7dx1",
+      "title": "1.4 Outline and Notations",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 12411,
+        "endIndex": 12927,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_9y16l9",
+      "title": "2 Sparse Recovery using Sparse Measurements",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 12927,
+        "endIndex": 14310,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_i2dpg5",
+      "title": "2.2 Problem",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 14310,
+        "endIndex": 15038,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_5wp0bb",
+      "title": "2.3 Results",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 15038,
+        "endIndex": 17329,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_z1yppy",
+      "title": "1. In the first regime considered above, the expression of nSP",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 17329,
+        "endIndex": 17446,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_ouk4mx",
+      "title": "2. In the second regime considered above, the expression of nSP",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 17446,
+        "endIndex": 23887,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_7ah2rn",
+      "title": "3 Improving Sparse Recovery via Sparsification",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 23887,
+        "endIndex": 24876,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_nud4q0",
+      "title": "3.2 Results",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 24876,
+        "endIndex": 28397,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_www45t",
+      "title": "4 Conclusion and Future Work",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 28397,
+        "endIndex": 32764,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_2wwf2x",
+      "title": "References",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 32764,
+        "endIndex": 35737,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_5w6hcj",
+      "title": "11 A\nSparse Recovery using Sparse Measurements: Proofs",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 35737,
+        "endIndex": 42499,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_t5dy1u",
+      "title": "16 Its characteristic function writes:",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 42499,
+        "endIndex": 65623,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_72skr7",
+      "title": "1. Claims",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 65623,
+        "endIndex": 66488,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_zypnch",
+      "title": "2. Limitations",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 66488,
+        "endIndex": 68771,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_oqed5c",
+      "title": "3. Theory assumptions and proofs",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 68771,
+        "endIndex": 69861,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_aeoodc",
+      "title": "4. Experimental result reproducibility",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 69861,
+        "endIndex": 72716,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_nbe05y",
+      "title": "5. Open access to data and code",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 72716,
+        "endIndex": 75038,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_7c2uw6",
+      "title": "7. Experiment statistical significance",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 75038,
+        "endIndex": 76716,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_0pvair",
+      "title": "8. Experiments compute resources",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 76716,
+        "endIndex": 77580,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_glkby7",
+      "title": "9. Code of ethics",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 77580,
+        "endIndex": 78246,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_5yz6h7",
+      "title": "10. Broader impacts",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 78246,
+        "endIndex": 80510,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_ya7jxg",
+      "title": "11. Safeguards",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 80510,
+        "endIndex": 81490,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_jaw0zm",
+      "title": "12. Licenses for existing assets",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 81490,
+        "endIndex": 82870,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_uz4nqv",
+      "title": "13. New assets",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 82870,
+        "endIndex": 83665,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_f5tj9r",
+      "title": "14. Crowdsourcing and research with human subjects",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 83665,
+        "endIndex": 85726,
+        "sourceFile": "json"
+      }
+    },
+    {
+      "id": "note_1773318650847_36tixh",
+      "title": "16. Declaration of LLM usage",
+      "pages": {
+        "manual": ""
+      },
+      "activePage": "manual",
+      "isOpen": true,
+      "sectionBoundary": {
+        "startIndex": 85726,
+        "endIndex": 86546,
+        "sourceFile": "json"
+      }
+    }
+  ],
+  "updated_at": "2026-03-12T12:30:52.892635"
+}

@@ -111,7 +111,7 @@ export default function PipelineModal({ isOpen, onClose }: PipelineModalProps) {
     };
   }, [isOpen]);
 
-  // Reload Discord config when entering step 3 to ensure .env values are loaded
+  // Reload Discord config when entering step 3 to reflect the latest saved settings
   useEffect(() => {
     if (isOpen && configStep === 3) {
       loadDiscordConfig();

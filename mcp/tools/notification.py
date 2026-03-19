@@ -11,6 +11,10 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from ..base import MCPTool, ToolParameter, ExecutionError
+from runtime.service_config import (
+    get_discord_webhook_full,
+    get_discord_webhook_summary,
+)
 
 logger = logging.getLogger("mcp.tools.notification")
 logger.setLevel(logging.INFO)
@@ -197,7 +201,7 @@ class SendDiscordNotificationTool(MCPTool):
     1. Go to your Discord server settings
     2. Integrations → Webhooks → New Webhook
     3. Copy the webhook URL
-    4. Set DISCORD_WEBHOOK_URL environment variable (or pass directly)
+    4. Save a Discord webhook in the local settings UI or pass one directly
     
     Discord supports full markdown formatting and threads.
     """
@@ -225,7 +229,7 @@ class SendDiscordNotificationTool(MCPTool):
             ToolParameter(
                 name="webhook_url",
                 type="string",
-                description="Discord Webhook URL. If not provided, uses DISCORD_WEBHOOK_URL env var.",
+                description="Discord Webhook URL. If not provided, uses the locally saved Discord webhook setting.",
                 required=False,
                 default=""
             ),
@@ -268,12 +272,12 @@ class SendDiscordNotificationTool(MCPTool):
         """Send message to Discord via webhook."""
         
         # Get webhook URL
-        url = webhook_url or os.environ.get("DISCORD_WEBHOOK_URL", "")
+        url = webhook_url or get_discord_webhook_full() or get_discord_webhook_summary()
         
         if not url:
             raise ExecutionError(
                 "Discord webhook URL not configured. "
-                "Provide webhook_url parameter or set DISCORD_WEBHOOK_URL environment variable.",
+                "Provide webhook_url parameter or save a Discord webhook in the local settings UI.",
                 tool_name=self.name
             )
         
@@ -498,9 +502,8 @@ class TestNotificationsTool(MCPTool):
         # Check environment variables
         env_status = {
             "SLACK_WEBHOOK_URL": "✅ Set" if os.environ.get("SLACK_WEBHOOK_URL") else "❌ Not set",
-            "DISCORD_WEBHOOK_URL": "✅ Set" if os.environ.get("DISCORD_WEBHOOK_URL") else "❌ Not set",
-            "DISCORD_WEBHOOK_FULL": "✅ Set" if os.environ.get("DISCORD_WEBHOOK_FULL") else "❌ Not set",
-            "DISCORD_WEBHOOK_SUMMARY": "✅ Set" if os.environ.get("DISCORD_WEBHOOK_SUMMARY") else "❌ Not set"
+            "DISCORD_WEBHOOK_FULL": "✅ Set" if get_discord_webhook_full() else "❌ Not set",
+            "DISCORD_WEBHOOK_SUMMARY": "✅ Set" if get_discord_webhook_summary() else "❌ Not set"
         }
         
         return {

@@ -2,16 +2,12 @@
 Web Search Tools
 
 Provides web search functionality using Tavily API.
-Requires TAVILY_API_KEY in environment.
 """
 
-import os
 from typing import Any, Dict, List, Optional
 
 from ..base import MCPTool, ToolParameter, ExecutionError
-
-# Tavily API key from environment
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+from runtime.service_config import require_tavily_api_key
 
 # Try to import tavily
 try:
@@ -91,10 +87,11 @@ class WebSearchTool(MCPTool):
                 tool_name=self.name
             )
 
-        api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
-        if not api_key:
+        try:
+            api_key = require_tavily_api_key()
+        except RuntimeError as exc:
             raise ExecutionError(
-                "TAVILY_API_KEY not found in environment",
+                str(exc),
                 tool_name=self.name
             )
 
@@ -169,10 +166,11 @@ class WebGetContentTool(MCPTool):
                 tool_name=self.name
             )
 
-        api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
-        if not api_key:
+        try:
+            api_key = require_tavily_api_key()
+        except RuntimeError as exc:
             raise ExecutionError(
-                "TAVILY_API_KEY not found in environment",
+                str(exc),
                 tool_name=self.name
             )
 
@@ -245,10 +243,11 @@ class WebResearchTool(MCPTool):
                 tool_name=self.name
             )
 
-        api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
-        if not api_key:
+        try:
+            api_key = require_tavily_api_key()
+        except RuntimeError as exc:
             raise ExecutionError(
-                "TAVILY_API_KEY not found in environment",
+                str(exc),
                 tool_name=self.name
             )
 

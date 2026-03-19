@@ -16,15 +16,18 @@ from ..base import MCPTool, ToolParameter, ExecutionError
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logs.llm_logger import get_logger as get_llm_logger, SummaryType
+from runtime.service_config import build_async_openai_client
 
 logger = logging.getLogger("mcp.tools.survey")
 logger.setLevel(logging.INFO)
 
-aclient = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
 
 class GenerateClusterSurveyTool(MCPTool):
     """
+
+    @staticmethod
+    def _get_client() -> AsyncOpenAI:
+        return build_async_openai_client()
     Two-Pass Survey Generator:
     1. Plan: Analyze papers to create a Taxonomy.
     2. Write: Generate the full survey based on the Taxonomy.
@@ -93,7 +96,7 @@ class GenerateClusterSurveyTool(MCPTool):
             """
 
             start_time_plan = time.time()
-            plan_response = await aclient.chat.completions.create(
+            plan_response = await self._get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": plan_prompt}],
                 temperature=0.2,  # 기획은 냉철하게
@@ -188,7 +191,7 @@ class GenerateClusterSurveyTool(MCPTool):
             """
 
             start_time_write = time.time()
-            final_response = await aclient.chat.completions.create(
+            final_response = await self._get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": write_prompt}],
                 temperature=0.4,  # 글쓰기는 약간 창의적으로

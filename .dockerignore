@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+dist
+output
+pdf
+
+web/node_modules
+web/dist
+web/.npm-cache
+web/.vendor

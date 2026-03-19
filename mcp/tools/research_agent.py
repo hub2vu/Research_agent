@@ -28,22 +28,20 @@ from .page_analyzer import get_full_paper_text, _extract_abstract
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logs.llm_logger import get_logger as get_llm_logger, SummaryType
+from runtime.service_config import (
+    build_async_openai_client,
+    get_discord_webhook_full,
+    get_discord_webhook_summary,
+)
 
 logger = logging.getLogger("mcp.tools.research_agent")
 logger.setLevel(logging.INFO)
-
-# OpenAI client
-aclient = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # Paths
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/output"))
 PDF_DIR = Path(os.getenv("PDF_DIR", "data/pdf"))
 STATUS_DIR = OUTPUT_DIR / "agent_status"
 STATUS_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _env_or_empty(key: str) -> str:
-    return (os.getenv(key) or "").strip()
 
 
 def _get_fallback_sections(sections: List[Dict], count: int = 2) -> List[str]:
@@ -174,6 +172,10 @@ class AgentState:
 
 class LLMOrchestrator:
     """Handles LLM-based decision making for the agent."""
+
+    @staticmethod
+    def _get_client() -> AsyncOpenAI:
+        return build_async_openai_client()
     
     @staticmethod
     async def extract_abstract(paper_id: str) -> str:
@@ -291,7 +293,7 @@ Respond ONLY with valid JSON, no additional text."""
         
         start_time = time.time()
         try:
-            response = await aclient.chat.completions.create(
+            response = await LLMOrchestrator._get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[
                     {
@@ -411,7 +413,7 @@ Write the executive summary directly, no JSON needed.
 
         start_time = time.time()
         try:
-            response = await aclient.chat.completions.create(
+            response = await LLMOrchestrator._get_client().chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3
@@ -649,9 +651,9 @@ class ResearchAgentTool(MCPTool):
         # Limit papers to 3
         paper_ids = paper_ids[:3]
         
-        # If webhook not provided by UI, fall back to env/.env-loaded env
-        discord_webhook_full = (discord_webhook_full or "").strip() or _env_or_empty("DISCORD_WEBHOOK_FULL")
-        discord_webhook_summary = (discord_webhook_summary or "").strip() or _env_or_empty("DISCORD_WEBHOOK_SUMMARY")
+        # If webhook not provided by UI, fall back to locally stored settings
+        discord_webhook_full = (discord_webhook_full or "").strip() or get_discord_webhook_full()
+        discord_webhook_summary = (discord_webhook_summary or "").strip() or get_discord_webhook_summary()
 
         # Initialize state
         state = AgentState(
@@ -1431,8 +1433,8 @@ class ConferencePipelineTool(MCPTool):
                 paper_ids=paper_ids_for_analysis,
                 goal=goal,
                 analysis_mode=analysis_mode,
-                discord_webhook_full=discord_webhook_full or _env_or_empty("DISCORD_WEBHOOK_FULL"),
-                discord_webhook_summary=discord_webhook_summary or _env_or_empty("DISCORD_WEBHOOK_SUMMARY"),
+                discord_webhook_full=discord_webhook_full or get_discord_webhook_full(),
+                discord_webhook_summary=discord_webhook_summary or get_discord_webhook_summary(),
                 source=source,
                 job_id=job_id
             )

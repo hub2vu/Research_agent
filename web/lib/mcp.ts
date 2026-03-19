@@ -300,6 +300,7 @@ export interface RankFilterPipelineParams {
   top_k?: number;
   include_contrastive?: boolean;
   contrastive_type?: string;
+  exclude_local_papers?: boolean;
 }
 
 export interface UserProfile {
@@ -327,6 +328,7 @@ export interface UserProfile {
   top_k?: number;
   include_contrastive?: boolean;
   contrastive_type?: string;
+  exclude_local_papers?: boolean;
 }
 
 /**
@@ -890,12 +892,55 @@ export async function listAgentJobs(): Promise<Array<{
   return data.jobs || [];
 }
 
-// ==================== Discord Config (.env-backed) ====================
+// ==================== Service Credentials ====================
+
+export interface ServiceCredentialsConfig {
+  openai_api_key: string;
+  tavily_api_key: string;
+  settings_path?: string;
+}
+
+export async function getServiceCredentials(): Promise<ServiceCredentialsConfig> {
+  const response = await fetch(`${MCP_BASE_URL}/config/credentials`);
+  if (!response.ok) {
+    throw new Error(`Failed to load service credentials: ${response.statusText}`);
+  }
+  const data = await response.json();
+  return {
+    openai_api_key: data.openai_api_key || '',
+    tavily_api_key: data.tavily_api_key || '',
+    settings_path: data.settings_path,
+  };
+}
+
+export async function updateServiceCredentials(payload: {
+  openai_api_key: string;
+  tavily_api_key: string;
+}): Promise<ServiceCredentialsConfig & { success: boolean }> {
+  const response = await fetch(`${MCP_BASE_URL}/config/credentials`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: response.statusText }));
+    throw new Error(error.detail || 'Failed to update service credentials');
+  }
+  const data = await response.json();
+  return {
+    success: !!data.success,
+    openai_api_key: data.openai_api_key || '',
+    tavily_api_key: data.tavily_api_key || '',
+    settings_path: data.settings_path,
+  };
+}
+
+// ==================== Discord Config ====================
 
 export async function getDiscordConfig(): Promise<{
   discord_webhook_full: string;
   discord_webhook_summary: string;
-  dotenv_path?: string;
+  settings_path?: string;
 }> {
   const response = await fetch(`${MCP_BASE_URL}/config/discord`);
   if (!response.ok) {
@@ -905,14 +950,14 @@ export async function getDiscordConfig(): Promise<{
   return {
     discord_webhook_full: data.discord_webhook_full || '',
     discord_webhook_summary: data.discord_webhook_summary || '',
-    dotenv_path: data.dotenv_path,
+    settings_path: data.settings_path,
   };
 }
 
 export async function updateDiscordConfig(payload: {
   discord_webhook_full: string;
   discord_webhook_summary: string;
-}): Promise<{ success: boolean; dotenv_path?: string }> {
+}): Promise<{ success: boolean; settings_path?: string }> {
   const response = await fetch(`${MCP_BASE_URL}/config/discord`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -923,7 +968,7 @@ export async function updateDiscordConfig(payload: {
     throw new Error(error.detail || 'Failed to update Discord config');
   }
   const data = await response.json();
-  return { success: !!data.success, dotenv_path: data.dotenv_path };
+  return { success: !!data.success, settings_path: data.settings_path };
 }
 
 /**
@@ -955,43 +1000,139 @@ export async function testNotifications(
 
 // ==================== Notion API ====================
 
-export interface SaveToNotionParams {
+export interface NotionConnectionStatus {
+  connected: boolean;
+  server_url: string;
+  workspace_id: string;
+  workspace_name: string;
+  workspace_icon: string;
+  bot_id: string;
+  owner_user_id: string;
+  connected_at: string;
+  expires_at: string;
+  settings_path?: string;
+}
+
+export interface NotionPageSummary {
+  id: string;
+  url: string;
+  title: string;
+  path: string;
+  kind: string;
+}
+
+export interface SaveNotionNotesPayload {
   paper_id: string;
   paper_title: string;
-  note_content: string;
-  tags?: string[];
+  notes: Array<Record<string, any>>;
+  target_page_id: string;
+  destination_title: string;
+  create_new_page: boolean;
   updated_at?: string;
 }
 
-export interface SaveToNotionResult {
+export interface SaveNotionNotesResult {
   success: boolean;
+  mode: 'created' | 'updated';
   page_id: string;
   page_url: string;
   page_title: string;
-  blocks_created: number;
-  message: string;
+  raw_text?: string;
 }
 
-/**
- * Save note content to Notion.
- * Creates a new page under the configured parent page with the note content.
- * Page title format: [{paper_id}] {paper_title}
- *
- * Note: Notion credentials (NOTION_API_TOKEN, NOTION_PARENT_PAGE_ID) are
- * configured in the server's environment variables - frontend never sees them.
- */
-export async function saveToNotion(params: SaveToNotionParams): Promise<SaveToNotionResult> {
-  const result = await executeTool('save_to_notion', {
-    paper_id: params.paper_id,
-    paper_title: params.paper_title,
-    note_content: params.note_content,
-    tags: params.tags || [],
-    updated_at: params.updated_at,
-  });
+async function readApiError(response: Response, fallbackMessage: string): Promise<never> {
+  const error = await response.json().catch(() => ({ detail: response.statusText }));
+  throw new Error(error.detail || fallbackMessage);
+}
 
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to save to Notion');
+export function buildNotionOAuthUrl(publicBaseUrl: string, frontendOrigin: string): string {
+  const params = new URLSearchParams({
+    public_base_url: publicBaseUrl,
+    frontend_origin: frontendOrigin,
+  });
+  return `${MCP_BASE_URL}/notion/oauth/start?${params.toString()}`;
+}
+
+export async function getNotionStatus(): Promise<NotionConnectionStatus> {
+  const response = await fetch(`${MCP_BASE_URL}/notion/status`);
+  if (!response.ok) {
+    throw new Error(`Failed to load Notion status: ${response.statusText}`);
+  }
+  const data = await response.json();
+  return {
+    connected: !!data.connected,
+    server_url: data.server_url || '',
+    workspace_id: data.workspace_id || '',
+    workspace_name: data.workspace_name || '',
+    workspace_icon: data.workspace_icon || '',
+    bot_id: data.bot_id || '',
+    owner_user_id: data.owner_user_id || '',
+    connected_at: data.connected_at || '',
+    expires_at: data.expires_at || '',
+    settings_path: data.settings_path,
+  };
+}
+
+export async function disconnectNotion(): Promise<{ success: boolean; connected: boolean }> {
+  const response = await fetch(`${MCP_BASE_URL}/notion/disconnect`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    await readApiError(response, 'Failed to disconnect Notion');
+  }
+  const data = await response.json();
+  return {
+    success: !!data.success,
+    connected: !!data.connected,
+  };
+}
+
+export async function searchNotionPages(query: string, limit: number = 20): Promise<NotionPageSummary[]> {
+  const normalizedQuery = query.trim();
+  if (!normalizedQuery) {
+    return [];
   }
 
-  return result.result as SaveToNotionResult;
+  const params = new URLSearchParams({
+    query: normalizedQuery,
+    limit: String(limit),
+  });
+  const response = await fetch(`${MCP_BASE_URL}/notion/pages/search?${params.toString()}`);
+  if (!response.ok) {
+    await readApiError(response, 'Failed to search Notion pages');
+  }
+  const data = await response.json();
+  return (data.pages || []) as NotionPageSummary[];
+}
+
+export async function listNotionPages(limit: number = 10): Promise<NotionPageSummary[]> {
+  const params = new URLSearchParams({
+    limit: String(limit),
+  });
+  const response = await fetch(`${MCP_BASE_URL}/notion/pages?${params.toString()}`);
+  if (!response.ok) {
+    await readApiError(response, 'Failed to load Notion pages');
+  }
+  const data = await response.json();
+  return (data.pages || []) as NotionPageSummary[];
+}
+
+export async function saveNotionNotes(payload: SaveNotionNotesPayload): Promise<SaveNotionNotesResult> {
+  const response = await fetch(`${MCP_BASE_URL}/notion/save`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    await readApiError(response, 'Failed to save to Notion');
+  }
+  const data = await response.json();
+  return {
+    success: !!data.success,
+    mode: data.mode,
+    page_id: data.page_id || '',
+    page_url: data.page_url || '',
+    page_title: data.page_title || '',
+    raw_text: data.raw_text,
+  };
 }

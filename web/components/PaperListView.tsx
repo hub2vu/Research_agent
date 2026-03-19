@@ -2,73 +2,96 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { getReport, generateReport, executeTool } from '../lib/mcp';
 import MarkdownWithLatex, { defaultMarkdownComponents } from './MarkdownWithLatex';
 import { LatexDiv } from './LatexText';
+import './workspaceTheme.css';
 
-// --- [타입 정의] ---
-type AnyEdge = { source: string; target: string; weight?: number; type?: string; };
-type AnyNode = { id: string; title?: string; label?: string; cluster?: number | string; abstract?: string;[key: string]: any; };
-type ReportState = | { status: 'idle' } | { status: 'loading' } | { status: 'missing' } | { status: 'found'; content: string } | { status: 'error'; message: string };
+type AnyEdge = { source: string; target: string; weight?: number; type?: string };
+type AnyNode = {
+  id: string;
+  title?: string;
+  label?: string;
+  cluster?: number | string;
+  abstract?: string;
+  authors?: string[];
+  [key: string]: any;
+};
+type ReportState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'missing' }
+  | { status: 'found'; content: string }
+  | { status: 'error'; message: string };
 
 const INITIAL_VISIBLE_COUNT = 20;
 const LOAD_MORE_STEP = 50;
 
-// --- [헬퍼 함수들] ---
-function truncateText(s: string, n: number) {
-  if (!s) return '';
-  const t = s.replace(/\s+/g, ' ').trim();
-  return t.length > n ? t.slice(0, n) + '…' : t;
+function truncateText(value: string, limit: number) {
+  if (!value) {
+    return '';
+  }
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized.length > limit ? `${normalized.slice(0, limit)}...` : normalized;
 }
 
 function buildAdjacency(nodes: AnyNode[], edges: AnyEdge[]) {
-  const nodeSet = new Set(nodes.map(n => n.id));
-  const adj = new Map<string, Set<string>>();
+  const nodeSet = new Set(nodes.map((node) => node.id));
+  const adjacency = new Map<string, Set<string>>();
   const degree = new Map<string, number>();
-  for (const n of nodes) { adj.set(n.id, new Set()); degree.set(n.id, 0); }
-  for (const e of edges || []) {
-    const a = e.source; const b = e.target;
-    if (!nodeSet.has(a) || !nodeSet.has(b)) continue;
-    const isSimilarity = (e.type === 'similarity') || (e.type == null && typeof e.weight === 'number');
-    if (!isSimilarity) continue;
-    adj.get(a)!.add(b); adj.get(b)!.add(a);
-    degree.set(a, (degree.get(a) || 0) + 1); degree.set(b, (degree.get(b) || 0) + 1);
-  }
-  return { adj, degree };
+
+  nodes.forEach((node) => {
+    adjacency.set(node.id, new Set());
+    degree.set(node.id, 0);
+  });
+
+  (edges || []).forEach((edge) => {
+    const { source, target } = edge;
+    if (!nodeSet.has(source) || !nodeSet.has(target)) {
+      return;
+    }
+
+    const isSimilarity = edge.type === 'similarity' || (edge.type == null && typeof edge.weight === 'number');
+    if (!isSimilarity) {
+      return;
+    }
+
+    adjacency.get(source)?.add(target);
+    adjacency.get(target)?.add(source);
+    degree.set(source, (degree.get(source) || 0) + 1);
+    degree.set(target, (degree.get(target) || 0) + 1);
+  });
+
+  return { adjacency, degree };
 }
 
-// 연결성 높은(중요한) 순서로 정렬하는 함수
-function orderByConnectivity(groupNodes: AnyNode[], adj: Map<string, Set<string>>, degree: Map<string, number>) {
+function orderByConnectivity(groupNodes: AnyNode[], adjacency: Map<string, Set<string>>, degree: Map<string, number>) {
+  void adjacency;
   return [...groupNodes].sort((a, b) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0));
 }
 
-// ✅ [서베이 생성 함수] (백엔드 툴 호출)
 async function generateSurvey(topicName: string, papers: AnyNode[]) {
   const topPapers = papers.slice(0, 20);
-
-  const context = topPapers.map((p, i) => `
-[Paper ${i + 1}]
-Title: ${p.title || p.id}
-Authors: ${p.authors ? p.authors.slice(0, 2).join(', ') : 'N/A'}
-Abstract: ${p.abstract ? truncateText(p.abstract, 500) : 'No abstract available'}
+  const context = topPapers.map((paper, index) => `
+[Paper ${index + 1}]
+Title: ${paper.title || paper.id}
+Authors: ${paper.authors ? paper.authors.slice(0, 2).join(', ') : 'N/A'}
+Abstract: ${paper.abstract ? truncateText(paper.abstract, 500) : 'No abstract available'}
 `).join('\n');
 
   try {
     const result = await executeTool('generate_cluster_survey', {
       topic: topicName,
       papers_context: context,
-      language: "Korean"
+      language: 'Korean',
     });
 
-    if (result.success && result.result && result.result.survey_content) {
+    if (result.success && result.result?.survey_content) {
       return result.result.survey_content;
-    } else {
-      console.error("Tool execution error:", result);
-      return "⚠️ Error: 서베이 생성에 실패했습니다. (백엔드 로그를 확인하세요)";
     }
-  } catch (error) {
-    console.error("System error:", error);
-    return "⚠️ Error: 서버 통신 중 오류가 발생했습니다.";
+
+    return 'Error: failed to generate the survey summary.';
+  } catch {
+    return 'Error: failed to reach the survey generation service.';
   }
 }
-
 
 export default function PaperListView(props: {
   nodes: AnyNode[];
@@ -77,225 +100,392 @@ export default function PaperListView(props: {
   groupTitle?: (groupKey: string) => string;
   onOpenPaper?: (paperId: string) => void;
   initialPrefetchCount?: number;
+  conferenceType?: string;
 }) {
-  const { nodes, edges, groupBy, groupTitle, onOpenPaper, initialPrefetchCount = 60 } = props;
-  const { adj, degree } = useMemo(() => buildAdjacency(nodes, edges), [nodes, edges]);
+  const {
+    nodes,
+    edges,
+    groupBy,
+    groupTitle,
+    onOpenPaper,
+    initialPrefetchCount = 60,
+    conferenceType,
+  } = props;
+  const { adjacency, degree } = useMemo(() => buildAdjacency(nodes, edges), [nodes, edges]);
 
   const groups = useMemo(() => {
-    const g = new Map<string, AnyNode[]>();
-    for (const n of nodes) {
-      const keyRaw = groupBy ? groupBy(n) : (n.cluster ?? '0');
+    const grouped = new Map<string, AnyNode[]>();
+    nodes.forEach((node) => {
+      const keyRaw = groupBy ? groupBy(node) : node.cluster ?? '0';
       const key = String(keyRaw ?? '0');
-      if (!g.has(key)) g.set(key, []);
-      g.get(key)!.push(n);
-    }
-    return g;
-  }, [nodes, groupBy]);
+      if (!grouped.has(key)) {
+        grouped.set(key, []);
+      }
+      grouped.get(key)?.push(node);
+    });
+    return grouped;
+  }, [groupBy, nodes]);
 
   const sortedGroupKeys = useMemo(() => {
     const keys = Array.from(groups.keys());
-    const allNumeric = keys.every(k => /^-?\d+(\.\d+)?$/.test(k));
-    return keys.sort((a, b) => {
-      if (allNumeric) return Number(a) - Number(b);
-      return a.localeCompare(b);
-    });
+    const allNumeric = keys.every((key) => /^-?\d+(\.\d+)?$/.test(key));
+    return keys.sort((a, b) => (allNumeric ? Number(a) - Number(b) : a.localeCompare(b)));
   }, [groups]);
 
   const [reportMap, setReportMap] = useState<Record<string, ReportState>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pipelineState, setPipelineState] = useState<Record<string, 'idle' | 'loading' | 'done' | 'error'>>({});
-  const inflightRef = useRef<Set<string>>(new Set());
-  const generatingRef = useRef<Set<string>>(new Set());
   const [visibleCounts, setVisibleCounts] = useState<Record<string, number>>({});
-
-  // ✅ [상태 분리] 데이터 / 가시성 / 로딩
   const [surveyData, setSurveyData] = useState<Record<string, string>>({});
   const [surveyVisible, setSurveyVisible] = useState<Record<string, boolean>>({});
   const [surveyLoading, setSurveyLoading] = useState<Record<string, boolean>>({});
+  const inflightRef = useRef<Set<string>>(new Set());
+  const generatingRef = useRef<Set<string>>(new Set());
 
-  const setReportState = useCallback((paperId: string, st: ReportState) => { setReportMap(prev => ({ ...prev, [paperId]: st })); }, []);
+  const setReportState = useCallback((paperId: string, nextState: ReportState) => {
+    setReportMap((current) => ({ ...current, [paperId]: nextState }));
+  }, []);
+
   const ensureReport = useCallback(async (paperId: string) => {
-    const cur = reportMap[paperId]; if (cur && cur.status !== 'idle') return; if (inflightRef.current.has(paperId)) return;
-    inflightRef.current.add(paperId); setReportState(paperId, { status: 'loading' });
-    try { const r = await getReport(paperId); if (r.found) setReportState(paperId, { status: 'found', content: r.content || '' }); else setReportState(paperId, { status: 'missing' }); } catch (e) { setReportState(paperId, { status: 'error', message: e instanceof Error ? e.message : 'Err' }); } finally { inflightRef.current.delete(paperId); }
-  }, [reportMap, setReportState]);
-  const handleGenerate = useCallback(async (paperId: string) => {
-    if (generatingRef.current.has(paperId)) return; generatingRef.current.add(paperId); setReportState(paperId, { status: 'loading' });
-    try { const gen = await generateReport(paperId); if (!gen?.status && gen?.success === false) throw new Error('fail'); const r = await getReport(paperId); if (r.found) setReportState(paperId, { status: 'found', content: r.content || '' }); else setReportState(paperId, { status: 'missing' }); } catch (e) { setReportState(paperId, { status: 'error', message: String(e) }); } finally { generatingRef.current.delete(paperId); }
-  }, [setReportState]);
-  const handleDownloadAndProcess = async (paperId: string) => {
-    if (pipelineState[paperId] === 'loading') return; setPipelineState(prev => ({ ...prev, [paperId]: 'loading' }));
-    try { const result = await executeTool('process_neurips_paper', { paper_id: paperId, out_dir: '/data/pdf/neurips2025' }); setPipelineState(prev => ({ ...prev, [paperId]: 'done' })); alert(result.result?.pipeline_results ? "PDF Saved!" : "Process Complete!"); ensureReport(paperId); } catch (err) { setPipelineState(prev => ({ ...prev, [paperId]: 'error' })); alert(`Error: ${String(err)}`); }
-  };
-
-  const handleLoadMore = (groupKey: string) => {
-    setVisibleCounts(prev => ({ ...prev, [groupKey]: (prev[groupKey] || INITIAL_VISIBLE_COUNT) + LOAD_MORE_STEP }));
-  };
-
-  // ✅ [버튼 핸들러] 데이터 유무에 따라 생성 또는 토글
-  const handleWriteSurveyButton = async (groupKey: string, papers: AnyNode[]) => {
-    if (surveyLoading[groupKey]) return;
-
-    if (surveyData[groupKey]) {
-      setSurveyVisible(prev => ({ ...prev, [groupKey]: !prev[groupKey] }));
+    const current = reportMap[paperId];
+    if ((current && current.status !== 'idle') || inflightRef.current.has(paperId)) {
       return;
     }
 
-    setSurveyLoading(prev => ({ ...prev, [groupKey]: true }));
+    inflightRef.current.add(paperId);
+    setReportState(paperId, { status: 'loading' });
     try {
-      const title = groupTitle ? groupTitle(groupKey) : `Cluster ${groupKey}`;
-      const ordered = orderByConnectivity(papers, adj, degree);
-      const resultText = await generateSurvey(title, ordered);
-
-      setSurveyData(prev => ({ ...prev, [groupKey]: resultText }));
-      setSurveyVisible(prev => ({ ...prev, [groupKey]: true }));
-    } catch (e) {
-      alert("Failed to write survey.");
+      const report = await getReport(paperId);
+      if (report.found) {
+        setReportState(paperId, { status: 'found', content: report.content || '' });
+      } else {
+        setReportState(paperId, { status: 'missing' });
+      }
+    } catch (err) {
+      setReportState(paperId, { status: 'error', message: err instanceof Error ? err.message : 'Error' });
     } finally {
-      setSurveyLoading(prev => ({ ...prev, [groupKey]: false }));
+      inflightRef.current.delete(paperId);
+    }
+  }, [reportMap, setReportState]);
+
+  const handleGenerate = useCallback(async (paperId: string) => {
+    if (generatingRef.current.has(paperId)) {
+      return;
+    }
+
+    generatingRef.current.add(paperId);
+    setReportState(paperId, { status: 'loading' });
+    try {
+      const generated = await generateReport(paperId);
+      if (!generated?.status && generated?.success === false) {
+        throw new Error('Failed');
+      }
+      const report = await getReport(paperId);
+      if (report.found) {
+        setReportState(paperId, { status: 'found', content: report.content || '' });
+      } else {
+        setReportState(paperId, { status: 'missing' });
+      }
+    } catch (err) {
+      setReportState(paperId, { status: 'error', message: String(err) });
+    } finally {
+      generatingRef.current.delete(paperId);
+    }
+  }, [setReportState]);
+
+  const handleDownloadAndProcess = async (paperId: string) => {
+    if (pipelineState[paperId] === 'loading') {
+      return;
+    }
+
+    setPipelineState((current) => ({ ...current, [paperId]: 'loading' }));
+    try {
+      const toolName = conferenceType === 'iclr' ? 'process_iclr_paper' : 'process_neurips_paper';
+      const outDir = conferenceType === 'iclr' ? '/data/pdf/iclr2025' : '/data/pdf/neurips2025';
+      const result = await executeTool(toolName, { paper_id: paperId, out_dir: outDir });
+      setPipelineState((current) => ({ ...current, [paperId]: 'done' }));
+      alert(result.result?.pipeline_results ? 'PDF Saved!' : 'Process Complete!');
+      ensureReport(paperId);
+    } catch (err) {
+      setPipelineState((current) => ({ ...current, [paperId]: 'error' }));
+      alert(`Error: ${String(err)}`);
     }
   };
 
-  // ✅ [재생성 핸들러]
-  const handleRegenerate = async (groupKey: string, papers: AnyNode[]) => {
-    if (!confirm("서베이를 다시 작성하시겠습니까? (기존 내용은 사라집니다)")) return;
-    setSurveyData(prev => { const n = { ...prev }; delete n[groupKey]; return n; });
-    handleWriteSurveyButton(groupKey, papers);
+  const handleWriteSurveyButton = async (groupKey: string, papersInGroup: AnyNode[]) => {
+    if (surveyLoading[groupKey]) {
+      return;
+    }
+
+    if (surveyData[groupKey]) {
+      setSurveyVisible((current) => ({ ...current, [groupKey]: !current[groupKey] }));
+      return;
+    }
+
+    setSurveyLoading((current) => ({ ...current, [groupKey]: true }));
+    try {
+      const title = groupTitle ? groupTitle(groupKey) : `Cluster ${groupKey}`;
+      const ordered = orderByConnectivity(papersInGroup, adjacency, degree);
+      const result = await generateSurvey(title, ordered);
+      setSurveyData((current) => ({ ...current, [groupKey]: result }));
+      setSurveyVisible((current) => ({ ...current, [groupKey]: true }));
+    } finally {
+      setSurveyLoading((current) => ({ ...current, [groupKey]: false }));
+    }
   };
 
-  useEffect(() => { const flat = nodes.slice(0, Math.min(nodes.length, initialPrefetchCount)); for (const n of flat) if (!reportMap[n.id]) setReportState(n.id, { status: 'idle' }); }, [nodes, initialPrefetchCount]);
-  useEffect(() => { const flat = nodes.slice(0, Math.min(nodes.length, initialPrefetchCount)); (async () => { for (const n of flat) { if (!reportMap[n.id]) continue; if (reportMap[n.id].status === 'idle') await ensureReport(n.id); } })(); }, [nodes, initialPrefetchCount, ensureReport]);
+  const handleRegenerate = async (groupKey: string, papersInGroup: AnyNode[]) => {
+    if (!confirm('Regenerate the survey summary for this cluster?')) {
+      return;
+    }
 
-  const rowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '420px 1fr', gap: '16px', padding: '10px 12px', borderBottom: '1px solid #e2e8f0', alignItems: 'start' };
+    setSurveyData((current) => {
+      const next = { ...current };
+      delete next[groupKey];
+      return next;
+    });
+    handleWriteSurveyButton(groupKey, papersInGroup);
+  };
+
+  useEffect(() => {
+    const prefetchNodes = nodes.slice(0, Math.min(nodes.length, initialPrefetchCount));
+    prefetchNodes.forEach((node) => {
+      if (!reportMap[node.id]) {
+        setReportState(node.id, { status: 'idle' });
+      }
+    });
+  }, [initialPrefetchCount, nodes, reportMap, setReportState]);
+
+  useEffect(() => {
+    const prefetchNodes = nodes.slice(0, Math.min(nodes.length, initialPrefetchCount));
+    (async () => {
+      for (const node of prefetchNodes) {
+        if (reportMap[node.id]?.status === 'idle') {
+          await ensureReport(node.id);
+        }
+      }
+    })();
+  }, [ensureReport, initialPrefetchCount, nodes, reportMap]);
+
+  if (sortedGroupKeys.length === 0) {
+    return (
+      <div className="workspace-list-shell">
+        <div className="workspace-empty-state">
+          <div className="workspace-empty-card workspace-list-card">
+            <h3 className="workspace-title" style={{ fontSize: '24px' }}>No papers in view</h3>
+            <p>Adjust the cluster or similarity controls to populate this list.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', background: '#fff' }}>
-      {sortedGroupKeys.map(gk => {
-        const rawNodes = groups.get(gk) || [];
-        const ordered = orderByConnectivity(rawNodes, adj, degree);
-        const currentLimit = visibleCounts[gk] || INITIAL_VISIBLE_COUNT;
-        const visibleNodes = ordered.slice(0, currentLimit);
-        const remainingCount = ordered.length - visibleNodes.length;
-
-        const isLoading = surveyLoading[gk];
-        const hasData = !!surveyData[gk];
-        const isVisible = surveyVisible[gk];
+    <div className="workspace-list-shell">
+      {sortedGroupKeys.map((groupKey) => {
+        const rawNodes = groups.get(groupKey) || [];
+        const orderedNodes = orderByConnectivity(rawNodes, adjacency, degree);
+        const visibleCount = visibleCounts[groupKey] || INITIAL_VISIBLE_COUNT;
+        const visibleNodes = orderedNodes.slice(0, visibleCount);
+        const remainingCount = orderedNodes.length - visibleNodes.length;
+        const isLoadingSurvey = surveyLoading[groupKey];
+        const hasSurvey = Boolean(surveyData[groupKey]);
+        const surveyIsVisible = surveyVisible[groupKey];
 
         return (
-          <div key={gk} style={{ borderBottom: '1px solid #cbd5e0' }}>
-
-            {/* --- [그룹 헤더] --- */}
-            <div style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f7fafc', padding: '10px 12px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#2d3748' }}>
-                  {groupTitle ? groupTitle(gk) : `Group ${gk}`}
-                </span>
-
+          <div key={groupKey}>
+            <div className="workspace-list-group-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div className="workspace-kicker">Cluster review</div>
+                  <div className="workspace-title" style={{ fontSize: '22px', marginTop: '4px' }}>
+                    {groupTitle ? groupTitle(groupKey) : `Group ${groupKey}`}
+                  </div>
+                </div>
                 <button
-                  onClick={() => handleWriteSurveyButton(gk, rawNodes)}
-                  disabled={isLoading}
-                  style={{
-                    padding: '4px 12px',
-                    fontSize: '11px',
-                    borderRadius: '20px',
-                    border: '1px solid #805ad5',
-                    backgroundColor: isVisible ? '#805ad5' : '#fff',
-                    color: isVisible ? '#fff' : '#805ad5',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    display: 'flex', alignItems: 'center', gap: '4px',
-                    transition: 'all 0.2s'
-                  }}
+                  onClick={() => handleWriteSurveyButton(groupKey, rawNodes)}
+                  disabled={isLoadingSurvey}
+                  className={surveyIsVisible ? 'workspace-btn' : 'workspace-btn-secondary'}
+                  style={{ border: 'none', padding: '11px 14px', cursor: isLoadingSurvey ? 'not-allowed' : 'pointer', fontSize: '11px' }}
                 >
-                  {isLoading ? 'Writing...' : (
-                    hasData
-                      ? (isVisible ? '📝 Hide Survey' : '📝 Show Survey (Cached)')
-                      : '📝 Write Survey'
-                  )}
+                  {isLoadingSurvey ? 'Writing...' : hasSurvey ? (surveyIsVisible ? 'Hide Survey' : 'Show Survey') : 'Write Survey'}
                 </button>
               </div>
-              <span style={{ fontSize: '12px', fontWeight: 500, color: '#718096' }}>{rawNodes.length} papers</span>
+              <span className="workspace-pill">{rawNodes.length} papers</span>
             </div>
 
-            {/* ✅ [서베이 결과 화면: MarkdownWithLatex 적용 - LaTeX 수식 지원] */}
-            {hasData && isVisible && (
-              <div style={{ padding: '24px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}>
-                <div style={{ fontWeight: 700, color: '#553c9a', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '14px' }}> AI Research Agent Report</span>
-                    <button onClick={() => handleRegenerate(gk, rawNodes)} style={{ fontSize: '11px', padding: '4px 8px', border: '1px solid #d6bcfa', background: '#faf5ff', color: '#805ad5', borderRadius: '4px', cursor: 'pointer' }}>↻ Regenerate</button>
+            {hasSurvey && surveyIsVisible && (
+              <div className="workspace-survey-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div>
+                    <div className="workspace-kicker">Cluster summary</div>
+                    <div className="workspace-title" style={{ fontSize: '24px', marginTop: '4px' }}>AI research report</div>
                   </div>
-                  <button onClick={() => setSurveyVisible(prev => ({ ...prev, [gk]: false }))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '18px', color: '#a0aec0' }}>×</button>
+                  <div className="workspace-mobile-stack">
+                    <button
+                      onClick={() => handleRegenerate(groupKey, rawNodes)}
+                      className="workspace-btn-secondary"
+                      style={{ border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                    >
+                      Regenerate
+                    </button>
+                    <button
+                      onClick={() => setSurveyVisible((current) => ({ ...current, [groupKey]: false }))}
+                      className="workspace-ghost-btn"
+                      style={{ border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
-
-                <div style={{ fontFamily: '"Inter", sans-serif' }}>
+                <div style={{ marginTop: '16px' }}>
                   <MarkdownWithLatex components={defaultMarkdownComponents}>
-                    {surveyData[gk]}
+                    {surveyData[groupKey]}
                   </MarkdownWithLatex>
                 </div>
               </div>
             )}
 
-            {/* --- [논문 리스트] --- */}
-            {visibleNodes.map(n => {
-              const title = n.title || n.label || n.id;
-              const deg = degree.get(n.id) || 0;
-              const hasLink = deg > 0;
-              const st = reportMap[n.id] ?? { status: 'idle' as const };
-              const isExpanded = !!expanded[n.id];
-              const pStatus = pipelineState[n.id] || 'idle';
-              const abstractText = (n as any).abstract || (n as any).summary || '';
+            {visibleNodes.map((node) => {
+              const title = node.title || node.label || node.id;
+              const reportState = reportMap[node.id] ?? { status: 'idle' as const };
+              const isExpanded = Boolean(expanded[node.id]);
+              const processState = pipelineState[node.id] || 'idle';
+              const abstractText = node.abstract || node.summary || '';
+              const connectionCount = degree.get(node.id) || 0;
+              const hasLinks = connectionCount > 0;
 
-              const rightContent = (() => {
-                if (st.status === 'loading') return <span style={{ color: '#718096' }}>Loading report...</span>;
-                if (st.status === 'found') {
-                  const text = isExpanded ? st.content : truncateText(st.content, 420);
-                  return (
-                    <div>
-                      <LatexDiv style={{ lineHeight: 1.5, fontSize: '12.5px', color: '#1a202c' }}>{text || '(empty)'}</LatexDiv>
-                      {!!st.content && st.content.length > 450 && (
-                        <button onClick={() => setExpanded(prev => ({ ...prev, [n.id]: !prev[n.id] }))} style={{ marginTop: '6px', border: 'none', background: 'transparent', color: '#3182ce', cursor: 'pointer', fontSize: '12px', padding: 0 }}>{isExpanded ? 'Show less' : 'Show more'}</button>
-                      )}
-                    </div>
-                  );
-                }
-                const isIdle = st.status === 'idle';
-                const isError = st.status === 'error';
-                return (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      {isError && <span style={{ color: '#e53e3e', fontSize: '11px' }}>Error</span>}
-                      {isIdle ? <button onClick={() => ensureReport(n.id)} style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #a0aec0', background: '#fff', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: '#4a5568' }}>Load report</button> : <button onClick={() => handleGenerate(n.id)} style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid #3182ce', background: '#ebf8ff', color: '#2b6cb0', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>{isError ? 'Retry' : 'Generate'}</button>}
-                      <button onClick={(e) => { e.stopPropagation(); handleDownloadAndProcess(n.id); }} disabled={pStatus === 'loading' || pStatus === 'done'} style={{ padding: '6px 12px', borderRadius: '4px', border: 'none', backgroundColor: pStatus === 'loading' ? '#cbd5e0' : (pStatus === 'done' ? '#2f855a' : (pStatus === 'error' ? '#f56565' : '#48bb78')), color: '#fff', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', cursor: (pStatus === 'loading' || pStatus === 'done') ? 'default' : 'pointer' }}>{pStatus === 'loading' ? 'DL...' : (pStatus === 'done' ? '✓ PDF' : 'Download PDF')}</button>
-                    </div>
-                    {abstractText ? (
-                      <div style={{ backgroundColor: '#f7fafc', padding: '12px', borderRadius: '6px', border: '1px solid #edf2f7' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#718096', marginBottom: '6px', textTransform: 'uppercase' }}>Abstract Preview</div>
-                        <LatexDiv style={{ fontSize: '12.5px', color: '#4a5568', lineHeight: '1.5' }}>{isExpanded ? abstractText : truncateText(abstractText, 350)}</LatexDiv>
-                        {abstractText.length > 350 && <button onClick={(e) => { e.stopPropagation(); setExpanded(prev => ({ ...prev, [n.id]: !prev[n.id] })); }} style={{ marginTop: '6px', border: 'none', background: 'transparent', color: '#3182ce', cursor: 'pointer', fontSize: '12px', padding: 0, fontWeight: 500 }}>{isExpanded ? 'Show less' : 'Show more'}</button>}
-                      </div>
-                    ) : <div style={{ fontSize: '12px', color: '#a0aec0', fontStyle: 'italic' }}>(No abstract)</div>}
+              let rightContent: React.ReactNode;
+              if (reportState.status === 'loading') {
+                rightContent = <span className="workspace-subtle">Loading report...</span>;
+              } else if (reportState.status === 'found') {
+                const text = isExpanded ? reportState.content : truncateText(reportState.content, 420);
+                rightContent = (
+                  <div className="workspace-list-card" style={{ padding: '14px' }}>
+                    <div className="workspace-section-label">Report preview</div>
+                    <LatexDiv style={{ lineHeight: 1.6, fontSize: '13px', color: 'rgba(22, 22, 22, 0.74)' }}>
+                      {text || '(empty)'}
+                    </LatexDiv>
+                    {!!reportState.content && reportState.content.length > 450 && (
+                      <button
+                        onClick={() => setExpanded((current) => ({ ...current, [node.id]: !current[node.id] }))}
+                        className="workspace-btn-secondary"
+                        style={{ marginTop: '12px', border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                      >
+                        {isExpanded ? 'Show less' : 'Show more'}
+                      </button>
+                    )}
                   </div>
                 );
-              })();
+              } else {
+                rightContent = (
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div className="workspace-mobile-stack">
+                      {reportState.status === 'idle' ? (
+                        <button
+                          onClick={() => ensureReport(node.id)}
+                          className="workspace-btn-secondary"
+                          style={{ border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                        >
+                          Load Report
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleGenerate(node.id)}
+                          className="workspace-btn"
+                          style={{ border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                        >
+                          {reportState.status === 'error' ? 'Retry Report' : 'Generate Report'}
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDownloadAndProcess(node.id);
+                        }}
+                        disabled={processState === 'loading' || processState === 'done'}
+                        className={processState === 'error' ? 'workspace-btn-secondary' : 'workspace-btn'}
+                        style={{ border: 'none', padding: '10px 14px', cursor: processState === 'loading' || processState === 'done' ? 'default' : 'pointer', fontSize: '11px' }}
+                      >
+                        {processState === 'loading' ? 'Downloading...' : processState === 'done' ? 'PDF Saved' : processState === 'error' ? 'Retry Download' : 'Download PDF'}
+                      </button>
+                    </div>
+
+                    {abstractText ? (
+                      <div className="workspace-list-card" style={{ padding: '14px' }}>
+                        <div className="workspace-section-label">Abstract Preview</div>
+                        <LatexDiv style={{ fontSize: '13px', color: 'rgba(22, 22, 22, 0.7)', lineHeight: 1.6 }}>
+                          {isExpanded ? abstractText : truncateText(abstractText, 350)}
+                        </LatexDiv>
+                        {abstractText.length > 350 && (
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpanded((current) => ({ ...current, [node.id]: !current[node.id] }));
+                            }}
+                            className="workspace-btn-secondary"
+                            style={{ marginTop: '12px', border: 'none', padding: '10px 14px', cursor: 'pointer', fontSize: '11px' }}
+                          >
+                            {isExpanded ? 'Show less' : 'Show more'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="workspace-list-card" style={{ padding: '14px', color: 'rgba(22, 22, 22, 0.54)', fontStyle: 'italic' }}>
+                        No abstract preview available.
+                      </div>
+                    )}
+                  </div>
+                );
+              }
 
               return (
-                <div key={n.id} style={rowStyle}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                    <div style={{ width: '18px', textAlign: 'center', marginTop: '2px', color: hasLink ? '#2b6cb0' : '#cbd5e0' }}>{hasLink ? '⟷' : '·'}</div>
-                    <div style={{ flex: 1 }}>
-                      <div onClick={(e) => { e.stopPropagation(); onOpenPaper?.(n.id); }} style={{ fontSize: '13px', fontWeight: 700, color: '#1a202c', cursor: onOpenPaper ? 'pointer' : 'default', lineHeight: 1.35 }} title={title}>{title}</div>
-                      <div style={{ marginTop: '4px', fontSize: '11px', color: '#718096' }}>{n.id} {hasLink ? `• links: ${deg}` : ''}</div>
+                <div key={node.id} className="workspace-list-row">
+                  <div className="workspace-list-card" style={{ padding: '16px' }}>
+                    <div className="workspace-mobile-stack" style={{ alignItems: 'center', marginBottom: '12px' }}>
+                      <span className="workspace-pill" data-tone={hasLinks ? 'moss' : undefined}>
+                        {hasLinks ? `${connectionCount} links` : 'Isolated'}
+                      </span>
+                      <span className="workspace-pill">{node.id}</span>
                     </div>
+
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenPaper?.(node.id);
+                      }}
+                      style={{
+                        border: 'none',
+                        background: 'transparent',
+                        padding: 0,
+                        textAlign: 'left',
+                        color: 'var(--charcoal)',
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        lineHeight: 1.5,
+                        cursor: onOpenPaper ? 'pointer' : 'default',
+                      }}
+                      title={title}
+                    >
+                      {title}
+                    </button>
                   </div>
+
                   <div>{rightContent}</div>
                 </div>
               );
             })}
 
             {remainingCount > 0 && (
-              <div style={{ padding: '12px', textAlign: 'center' }}>
-                <button onClick={() => handleLoadMore(gk)} style={{ padding: '8px 24px', borderRadius: '20px', border: '1px solid #cbd5e0', background: '#fff', color: '#4a5568', cursor: 'pointer', fontSize: '13px', fontWeight: 600, boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>👇 Show {Math.min(remainingCount, LOAD_MORE_STEP)} more ({remainingCount} remaining)</button>
+              <div style={{ padding: '16px 18px', textAlign: 'center' }}>
+                <button
+                  onClick={() => setVisibleCounts((current) => ({ ...current, [groupKey]: (current[groupKey] || INITIAL_VISIBLE_COUNT) + LOAD_MORE_STEP }))}
+                  className="workspace-btn-secondary"
+                  style={{ border: 'none', padding: '12px 16px', cursor: 'pointer', fontSize: '11px' }}
+                >
+                  Show {Math.min(remainingCount, LOAD_MORE_STEP)} more ({remainingCount} remaining)
+                </button>
               </div>
             )}
           </div>

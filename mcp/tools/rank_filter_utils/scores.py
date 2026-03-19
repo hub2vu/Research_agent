@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Set, Tuple
 
 from .types import PaperInput, UserProfile
+from runtime.service_config import build_async_openai_client
 
 # Weight tables for different purposes
 WEIGHTS: Dict[str, Dict[str, float]] = {
@@ -406,15 +407,9 @@ async def _verify_with_llm(
         # If OpenAI is not available, return empty results
         return {paper["paper_id"]: (0.0, "") for paper in papers}
     
-    api_key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL", "gpt-4o")
-    
-    if not api_key:
-        # If API key is not available, return empty results
-        return {paper["paper_id"]: (0.0, "") for paper in papers}
-    
     try:
-        client = AsyncOpenAI(api_key=api_key)
+        client = build_async_openai_client()
+        model = "gpt-4o"
     except Exception:
         return {paper["paper_id"]: (0.0, "") for paper in papers}
     

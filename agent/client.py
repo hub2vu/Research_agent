@@ -21,20 +21,17 @@ import time
 from typing import Any, Dict, List, Optional
 
 import requests
-from dotenv import load_dotenv
 from openai import OpenAI
 
 from .memory import Memory, MessageRole
 from .planner import Planner
 from .executor import Executor
+from runtime.service_config import get_openai_api_key, get_service_config_path
 
 # LLM Logging
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logs.llm_logger import get_logger as get_llm_logger
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -43,8 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_MODEL = "gpt-4o"
 MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://mcp-server:8000")
 
 SYSTEM_PROMPT = """You are a research assistant with access to various tools for:
@@ -86,10 +82,6 @@ class AgentClient:
     """
 
     def __init__(self):
-        if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY not found in environment")
-
-        self.openai = OpenAI(api_key=OPENAI_API_KEY)
         self.model = OPENAI_MODEL
         self.mcp_url = MCP_SERVER_URL
 
@@ -98,6 +90,15 @@ class AgentClient:
         self.tools_schema = self._fetch_tools_schema()
         self.planner = Planner(self.tools_schema)
         self.executor = Executor(tool_caller=self._call_mcp_tool, memory=self.memory)
+
+    def _get_openai_client(self) -> OpenAI:
+        api_key = get_openai_api_key()
+        if not api_key:
+            raise ValueError(
+                "OpenAI API key is not configured. Open the Account settings in the web UI and save it first. "
+                f"Settings file: {get_service_config_path()}"
+            )
+        return OpenAI(api_key=api_key)
 
     def _fetch_tools_schema(self) -> List[Dict]:
         """Fetch available tools from MCP server."""
@@ -173,7 +174,7 @@ class AgentClient:
         # LLM Logging - Start timing
         start_time = time.time()
 
-        response = self.openai.chat.completions.create(**kwargs)
+        response = self._get_openai_client().chat.completions.create(**kwargs)
 
         # LLM Logging - Log the call
         latency_ms = (time.time() - start_time) * 1000
@@ -290,6 +291,7 @@ def interactive_mode():
     print("=" * 60)
     print(f"Model: {OPENAI_MODEL}")
     print(f"MCP Server: {MCP_SERVER_URL}")
+    print(f"Settings File: {get_service_config_path()}")
     print("-" * 60)
     print("Commands:")
     print("  /quit  - Exit")
@@ -371,11 +373,6 @@ def single_command(command: str):
 
 def main():
     """Main entry point."""
-    if not OPENAI_API_KEY:
-        print("Error: OPENAI_API_KEY not found")
-        print("Set OPENAI_API_KEY in .env file or environment variable")
-        sys.exit(1)
-
     if len(sys.argv) > 1:
         command = " ".join(sys.argv[1:])
         single_command(command)

@@ -14,6 +14,7 @@ from ..base import MCPTool, ToolParameter, ExecutionError
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from logs.llm_logger import get_logger as get_llm_logger, SummaryType
+from runtime.service_config import build_async_openai_client
 
 # PDF 라이브러리
 try:
@@ -26,9 +27,11 @@ logger = logging.getLogger("mcp.tools.page_analyzer")
 logger.setLevel(logging.INFO)
 
 # OpenAI 클라이언트
-aclient = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
 OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "data/output"))
+
+
+def _get_client() -> AsyncOpenAI:
+    return build_async_openai_client()
 
 
 # =============================================================================
@@ -148,7 +151,7 @@ async def interpret_paper_page(paper_id: str, page_num: int) -> Dict[str, Any]:
         """
 
         start_time = time.time()
-        response = await aclient.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
@@ -393,7 +396,7 @@ class AnalyzeSectionTool(MCPTool):
 """
 
         start_time = time.time()
-        response = await aclient.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model="gpt-4o",
             messages=[
                 {
@@ -615,7 +618,7 @@ class PaperQATool(MCPTool):
 
         # 5. LLM 호출
         start_time = time.time()
-        response = await aclient.chat.completions.create(
+        response = await _get_client().chat.completions.create(
             model="gpt-4o",
             messages=[
                 {

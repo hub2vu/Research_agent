@@ -1,11 +1,6 @@
-/**
- * NeurIPSSearchSidebar Component
- *
- * Sidebar for NeurIPS search with profile settings and search input.
- */
-
 import React, { useState } from 'react';
 import UserProfileSettingsModal from './UserProfileSettingsModal';
+import './workspaceTheme.css';
 
 interface NeurIPSSearchSidebarProps {
   searchQuery: string;
@@ -26,118 +21,98 @@ export default function NeurIPSSearchSidebar({
 
   return (
     <>
-      <div style={{
-        position: 'absolute',
-        top: '16px',
-        right: '16px',
-        zIndex: 5,
-        backgroundColor: 'rgba(26, 32, 44, 0.95)',
-        padding: '16px',
-        borderRadius: '8px',
-        width: '320px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        maxHeight: 'calc(100vh - 120px)',
-        overflowY: 'auto',
-      }}>
-        {/* Profile Settings Button */}
-        <div style={{ marginBottom: '16px' }}>
-          <button
-            onClick={() => setShowProfileModal(true)}
-            style={{
-              width: '100%',
-              padding: '10px',
-              borderRadius: '6px',
-              border: '1px solid #4a5568',
-              backgroundColor: '#2d3748',
-              color: '#e2e8f0',
-              fontSize: '13px',
-              fontWeight: 500,
-              cursor: 'pointer',
-            }}
-          >
-            ⚙️ Profile Settings
-          </button>
+      <div
+        className="workspace-floating-panel"
+        style={{
+          position: 'absolute',
+          top: '64px',
+          right: '16px',
+          zIndex: 5,
+          width: '360px',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: 'calc(100vh - 148px)',
+          overflowY: 'auto',
+          padding: '18px',
+        }}
+      >
+        <div className="workspace-kicker">Search Query Sidebar</div>
+        <div className="workspace-title" style={{ fontSize: '24px', marginTop: '6px' }}>Profile-guided ranking</div>
+        <div className="workspace-subtle" style={{ marginTop: '6px', fontSize: '13px', lineHeight: 1.55 }}>
+          Use your reading profile to rank NeurIPS results against the live conference graph.
         </div>
 
-        {/* Search Input */}
-        <div style={{ marginBottom: '12px' }}>
-          <label style={{
-            display: 'block',
-            color: '#a0aec0',
-            fontSize: '12px',
-            marginBottom: '8px',
-            textTransform: 'uppercase',
-          }}>
-            Search Query
-          </label>
+        <button
+          onClick={() => setShowProfileModal(true)}
+          className="workspace-btn-secondary"
+          style={{
+            width: '100%',
+            marginTop: '16px',
+            padding: '12px 14px',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '11px',
+          }}
+        >
+          Open Profile Settings
+        </button>
+
+        <div style={{ marginTop: '18px' }}>
+          <label className="workspace-section-label">Research prompt</label>
           <input
+            className="workspace-input"
             type="text"
             value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !isSearching) {
-                e.preventDefault();
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey && !isSearching) {
+                event.preventDefault();
                 onSearch();
               }
             }}
-            placeholder="Enter research topic..."
+            placeholder="Ask for a method, benchmark, or theme"
             disabled={isSearching}
-            style={{
-              width: '100%',
-              padding: '10px',
-              borderRadius: '6px',
-              border: '1px solid #2d3748',
-              backgroundColor: '#2d3748',
-              color: '#fff',
-              fontSize: '14px',
-              outline: 'none',
-            }}
+            style={{ padding: '14px 16px', fontSize: '14px' }}
           />
         </div>
 
-        {/* Search Button */}
+        <div className="workspace-mobile-stack" style={{ marginTop: '14px' }}>
+          <span className="workspace-pill" data-tone="accent">NeurIPS 2025</span>
+          <span className="workspace-pill">Top 10 ranked</span>
+          <span className="workspace-pill" data-tone="moss">Profile aware</span>
+        </div>
+
         <button
           onClick={onSearch}
           disabled={isSearching || !searchQuery.trim()}
+          className="workspace-btn"
           style={{
             width: '100%',
-            padding: '12px',
-            borderRadius: '6px',
+            marginTop: '18px',
+            padding: '14px 16px',
             border: 'none',
-            backgroundColor: (isSearching || !searchQuery.trim()) ? '#4a5568' : '#4a90d9',
-            color: '#fff',
-            fontSize: '14px',
-            fontWeight: 500,
-            cursor: (isSearching || !searchQuery.trim()) ? 'not-allowed' : 'pointer',
+            cursor: isSearching || !searchQuery.trim() ? 'not-allowed' : 'pointer',
+            fontSize: '11px',
           }}
         >
-          {isSearching ? 'Analyzing...' : '분석 실행'}
+          {isSearching ? 'Analyzing...' : 'Rank NeurIPS Papers'}
         </button>
 
         {isSearching && (
-          <div style={{
-            marginTop: '12px',
-            padding: '8px',
-            backgroundColor: '#2d3748',
-            borderRadius: '4px',
-            color: '#a0aec0',
-            fontSize: '12px',
-            textAlign: 'center',
-          }}>
-            Searching and ranking papers...
+          <div
+            className="workspace-list-card"
+            style={{ marginTop: '14px', padding: '12px 14px', fontSize: '12px', color: 'rgba(22, 22, 22, 0.6)' }}
+          >
+            Comparing semantic relevance, trust signals, and practical fit.
           </div>
         )}
       </div>
 
-      {/* Profile Settings Modal */}
       <UserProfileSettingsModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
         onSave={() => {
           setShowProfileModal(false);
-          if (onProfileSave) {
-            onProfileSave();
-          }
+          onProfileSave?.();
         }}
       />
     </>
