@@ -1,4 +1,4 @@
-# Research Agent Util
+# Research Agent
 
 Local MCP-based research workspace for paper search, ranking, graph exploration, note taking, and report generation.
 
