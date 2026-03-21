@@ -51,6 +51,7 @@
   - `quick`
   - `standard`
   - `deep`
+<img width="850" height="850" alt="image" src="https://github.com/user-attachments/assets/af39dc69-9eeb-4a6c-953d-3ea0dda356be" />
 
 ### 1.5 리포트 / 섹션 분석 / QA
 - 전체 요약 리포트 생성
