@@ -1,3 +1,7 @@
+<img width="845" height="852" alt="image" src="https://github.com/user-attachments/assets/1479d5ef-3a08-4a7c-93a0-45156cd40cb8" />
+
+
+
 # Research Agent
 
 로컬에서 실행하는 **MCP 기반 연구 워크스페이스**입니다.  
