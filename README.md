@@ -75,12 +75,16 @@
 - 번역 / 분석 / QA 결과를 별도 페이지 상태로 저장
 - 자동 저장(localStorage + 파일 시스템)
 - Notion으로 저장 가능
+<img width="845" height="852" alt="image" src="https://github.com/user-attachments/assets/1e9fd0bc-11b3-4440-ab02-eba042769e30" />
 
 ### 1.8 외부 연동
 - **OpenAI API**: 에이전트 추론, 번역, 리포트, 채팅
 - **Tavily API**: 실시간 웹 검색
 - **Notion OAuth**: 노트 저장
 - **Discord Webhook**: full/summary 알림
+
+<img width="852" height="852" alt="image" src="https://github.com/user-attachments/assets/da6f0c4b-db59-4f8c-82e5-40710a26af1a" />
+
 
 ### 1.9 관측성과 저장
 - 프롬프트/응답 JSONL 로깅
