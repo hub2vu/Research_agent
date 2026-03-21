@@ -1,7 +1,6 @@
 # Research Agent
 
 로컬에서 실행하는 **MCP 기반 연구 워크스페이스**입니다.  
-이 프로젝트는 단순한 PDF 뷰어가 아니라, 아래 흐름을 하나의 스택으로 묶습니다.
 
 > **논문 검색 → 필터링/랭킹 → PDF 다운로드 → 텍스트/이미지 추출 → 섹션 분석 → 최종 리포트 생성 → 그래프 탐색 → 노트 저장/외부 연동**
 
@@ -903,20 +902,6 @@ docker compose up -d agent
 curl http://localhost:8001/health
 ```
 
-### 문제 2. OpenAI 관련 에러가 난다
-원인:
-- OpenAI API Key가 저장되지 않았음
-
-해결:
-- `http://localhost:3000` → **Account** → OpenAI 키 저장
-
-### 문제 3. 웹 검색 결과가 비어 있다
-원인:
-- Tavily API Key 없음
-
-해결:
-- Account 모달에서 Tavily 키 저장
-
 ### 문제 4. PDF는 넣었는데 UI에서 못 찾는다
 확인:
 - 파일이 실제로 `./pdf/` 아래 있는지
@@ -963,6 +948,6 @@ output/_runtime/
 
 ---
 
-## 16. 현재 구조를 한 문장으로 요약
+## 16. 현재 구조 요약
 
 **Research Agent는 로컬 Docker 환경에서 실행되는 논문 연구 워크스페이스로, MCP 도구 서버(`mcp-server`), OpenAI 오케스트레이터(`agent`), React UI(`web`)를 결합해 검색·랭킹·다운로드·추출·분석·리포트·그래프·노트·외부 연동을 하나의 흐름으로 제공한다.**
