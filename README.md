@@ -66,6 +66,8 @@
 - **Paper Reference Graph**
 - 기존 노드에 점진적으로 reference subgraph를 확장하는 방식 지원
 <img width="845" height="852" alt="image" src="https://github.com/user-attachments/assets/012b79dd-c3e2-4ed3-97b7-53111424bb19" />
+<img width="845" height="852" alt="image" src="https://github.com/user-attachments/assets/7597a2ec-034c-4202-9844-35b029430ab4" />
+
 
 ### 1.7 노트 워크스페이스
 - 논문별 노트 페이지
