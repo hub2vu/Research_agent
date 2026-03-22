@@ -8,6 +8,7 @@ import {
   type NotionConnectionStatus,
   updateServiceCredentials,
 } from '../lib/mcp';
+import './workspaceTheme.css';
 
 interface AccountSettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,35 @@ const fieldMeta: Array<{
     secret: true,
   },
 ];
+
+const fieldLabelStyle: React.CSSProperties = {
+  display: 'block',
+  marginBottom: '6px',
+  fontSize: '12px',
+  color: 'rgba(22, 22, 22, 0.64)',
+  fontFamily: 'JetBrains Mono, monospace',
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+};
+
+const helperTextStyle: React.CSSProperties = {
+  marginTop: '8px',
+  color: 'rgba(22, 22, 22, 0.58)',
+  fontSize: '12px',
+  lineHeight: 1.6,
+};
+
+const sectionCardStyle: React.CSSProperties = {
+  marginBottom: '18px',
+  padding: '18px',
+};
+
+const messageCardStyle: React.CSSProperties = {
+  marginBottom: '14px',
+  padding: '12px 14px',
+  fontSize: '13px',
+  lineHeight: 1.6,
+};
 
 export default function AccountSettingsModal({
   isOpen,
@@ -199,240 +229,278 @@ export default function AccountSettingsModal({
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.55)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1100,
-      padding: '20px',
-    }}>
-      <div style={{
-        width: '680px',
-        maxWidth: '95vw',
-        maxHeight: '90vh',
-        backgroundColor: '#1a202c',
-        borderRadius: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          padding: '16px 20px',
-          borderBottom: '1px solid #2d3748',
+    <div className="workspace-modal-wrap" style={{ zIndex: 1100 }}>
+      <div className="workspace-overlay" />
+      <div
+        className="workspace-modal-card"
+        style={{
+          position: 'relative',
+          width: '720px',
+          maxWidth: 'calc(100vw - 32px)',
+          maxHeight: '88vh',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '38px',
-              height: '38px',
-              borderRadius: '50%',
-              backgroundColor: '#2d3748',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#f6ad55',
-            }}>
+          flexDirection: 'column',
+          zIndex: 1,
+          background:
+            'linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(242, 240, 233, 0.82))',
+        }}
+      >
+        <div
+          style={{
+            padding: '18px 20px',
+            borderBottom: '1px solid rgba(46, 64, 54, 0.08)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '16px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: 'rgba(204, 88, 51, 0.12)',
+                border: '1px solid rgba(204, 88, 51, 0.16)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#9b3c1f',
+                flexShrink: 0,
+              }}
+            >
               <KeyRound size={18} />
             </div>
             <div>
-              <h2 style={{ margin: 0, color: '#fff', fontSize: '18px' }}>Account Settings</h2>
-              <div style={{ color: '#a0aec0', fontSize: '12px', marginTop: '2px' }}>
-                Manage API credentials and the local Notion connection state.
+              <div className="workspace-kicker">Local runtime settings</div>
+              <div className="workspace-title" style={{ marginTop: '4px', fontSize: '28px' }}>
+                Account
+              </div>
+              <div
+                className="workspace-subtle"
+                style={{ marginTop: '4px', fontSize: '13px', lineHeight: 1.6 }}
+              >
+                Manage API credentials and the Notion OAuth connection used by the local MCP
+                runtime.
               </div>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: '#a0aec0',
-              fontSize: '24px',
-              cursor: 'pointer',
-              lineHeight: 1,
-            }}
+            className="workspace-ghost-btn workspace-dismiss-btn"
+            aria-label="Close account settings"
           >
-            &times;
+            X
           </button>
         </div>
 
-        <div style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '20px',
-        }}>
-          <div style={{
-            marginBottom: '18px',
-            padding: '12px 14px',
-            backgroundColor: '#2d3748',
-            border: '1px solid #4a5568',
-            borderRadius: '10px',
-            color: '#cbd5e0',
-            fontSize: '12px',
-            lineHeight: 1.6,
-          }}>
-            Keys and Notion OAuth state are stored locally and read at runtime by the MCP server and agent. Restart is not required after saving.
+        <div className="workspace-scroll" style={{ flex: 1, padding: '18px 20px' }}>
+          <div
+            className="workspace-list-card"
+            style={{
+              ...sectionCardStyle,
+              background:
+                'linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(242, 240, 233, 0.84))',
+            }}
+          >
+            <div className="workspace-kicker">Storage</div>
+            <div
+              style={{ marginTop: '6px', color: 'rgba(22, 22, 22, 0.72)', fontSize: '13px', lineHeight: 1.7 }}
+            >
+              Keys and Notion OAuth state are stored locally and read at runtime by the MCP server
+              and agent. Restart is not required after saving.
+            </div>
             {settingsPath ? (
-              <div style={{ marginTop: '6px', color: '#90cdf4', wordBreak: 'break-all' }}>
+              <div
+                style={{
+                  marginTop: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '16px',
+                  border: '1px solid rgba(46, 64, 54, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.58)',
+                  color: 'rgba(46, 64, 54, 0.82)',
+                  fontSize: '12px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  wordBreak: 'break-all',
+                }}
+              >
                 {settingsPath}
               </div>
             ) : null}
           </div>
 
           {loading ? (
-            <div style={{ color: '#a0aec0', textAlign: 'center', padding: '48px 0' }}>
-              Loading account settings...
+            <div
+              className="workspace-empty-card workspace-list-card"
+              style={{ margin: '18px auto', maxWidth: '420px' }}
+            >
+              <h3 className="workspace-title" style={{ fontSize: '24px' }}>Loading account</h3>
+              <p>Fetching local credentials and Notion connection state.</p>
             </div>
           ) : (
             <>
               {error ? (
-                <div style={{
-                  marginBottom: '14px',
-                  backgroundColor: 'rgba(245,101,101,0.18)',
-                  color: '#feb2b2',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(245,101,101,0.5)',
-                }}>
+                <div
+                  className="workspace-list-card"
+                  style={{
+                    ...messageCardStyle,
+                    background: 'rgba(204, 88, 51, 0.12)',
+                    borderColor: 'rgba(204, 88, 51, 0.2)',
+                    color: '#9b3c1f',
+                  }}
+                >
                   {error}
                 </div>
               ) : null}
 
               {savedMessage ? (
-                <div style={{
-                  marginBottom: '14px',
-                  backgroundColor: 'rgba(72,187,120,0.15)',
-                  color: '#9ae6b4',
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(72,187,120,0.45)',
-                }}>
+                <div
+                  className="workspace-list-card"
+                  style={{
+                    ...messageCardStyle,
+                    background: 'rgba(46, 64, 54, 0.11)',
+                    borderColor: 'rgba(46, 64, 54, 0.18)',
+                    color: '#2e4036',
+                  }}
+                >
                   {savedMessage}
                 </div>
               ) : null}
 
-              {fieldMeta.map(field => {
-                const isVisible = visible[field.name];
-                return (
-                  <div key={field.name} style={{ marginBottom: '18px' }}>
-                    <label style={{
-                      display: 'block',
-                      color: '#e2e8f0',
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      marginBottom: '8px',
-                    }}>
-                      {field.label}
-                    </label>
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type={!isVisible ? 'password' : 'text'}
-                        value={form[field.name]}
-                        onChange={(event) => handleChange(field.name, event.target.value)}
-                        placeholder={field.placeholder}
-                        autoComplete="off"
-                        spellCheck={false}
+              <div className="workspace-list-card" style={sectionCardStyle}>
+                <div className="workspace-section-label">Credentials</div>
+                <div style={{ display: 'grid', gap: '14px' }}>
+                  {fieldMeta.map(field => {
+                    const isVisible = visible[field.name];
+                    return (
+                      <div
+                        key={field.name}
                         style={{
-                          width: '100%',
-                          padding: '12px 52px 12px 14px',
-                          borderRadius: '10px',
-                          border: '1px solid #2d3748',
-                          backgroundColor: '#2d3748',
-                          color: '#fff',
-                          fontSize: '14px',
-                          outline: 'none',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setVisible(prev => ({ ...prev, [field.name]: !prev[field.name] }))}
-                        style={{
-                          position: 'absolute',
-                          top: '50%',
-                          right: '12px',
-                          transform: 'translateY(-50%)',
-                          background: 'none',
-                          border: 'none',
-                          color: '#a0aec0',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: 0,
+                          padding: '16px',
+                          borderRadius: '22px',
+                          border: '1px solid rgba(46, 64, 54, 0.1)',
+                          background: 'rgba(255, 255, 255, 0.56)',
                         }}
                       >
-                        {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
-                    <div style={{
-                      marginTop: '6px',
-                      color: '#718096',
-                      fontSize: '12px',
-                      lineHeight: 1.5,
-                    }}>
-                      {field.description}
-                    </div>
-                  </div>
-                );
-              })}
+                        <label htmlFor={field.name} style={fieldLabelStyle}>
+                          {field.label}
+                        </label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            id={field.name}
+                            className="workspace-input"
+                            type={!isVisible ? 'password' : 'text'}
+                            value={form[field.name]}
+                            onChange={(event) => handleChange(field.name, event.target.value)}
+                            placeholder={field.placeholder}
+                            autoComplete="off"
+                            spellCheck={false}
+                            style={{
+                              padding: '13px 50px 13px 14px',
+                              fontSize: '14px',
+                              boxSizing: 'border-box',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setVisible(prev => ({ ...prev, [field.name]: !prev[field.name] }))
+                            }
+                            aria-label={isVisible ? `Hide ${field.label}` : `Show ${field.label}`}
+                            className="workspace-ghost-btn"
+                            style={{
+                              position: 'absolute',
+                              top: '50%',
+                              right: '8px',
+                              transform: 'translateY(-50%)',
+                              width: '36px',
+                              height: '36px',
+                              borderRadius: '50%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                              borderColor: 'transparent',
+                            }}
+                          >
+                            {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                          </button>
+                        </div>
+                        <div style={helperTextStyle}>{field.description}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <div style={{
-                marginTop: '12px',
-                padding: '16px',
-                borderRadius: '12px',
-                border: '1px solid #2d3748',
-                backgroundColor: '#111827',
-              }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                  marginBottom: '12px',
-                }}>
-                  <div>
-                    <div style={{ color: '#f7fafc', fontSize: '15px', fontWeight: 600 }}>
-                      Notion
+              <div className="workspace-list-card" style={sectionCardStyle}>
+                <div className="workspace-section-label">Notion</div>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    flexWrap: 'wrap',
+                    marginBottom: '14px',
+                  }}
+                >
+                  <div style={{ flex: '1 1 260px' }}>
+                    <div className="workspace-title" style={{ fontSize: '22px' }}>
+                      Workspace connection
                     </div>
-                    <div style={{ color: '#94a3b8', fontSize: '12px', marginTop: '4px', lineHeight: 1.6 }}>
-                      Connect through the hosted Notion MCP OAuth flow. Tokens stay in the local runtime settings and are refreshed server-side.
+                    <div
+                      className="workspace-subtle"
+                      style={{ marginTop: '6px', fontSize: '13px', lineHeight: 1.65 }}
+                    >
+                      Connect through the hosted Notion MCP OAuth flow. Tokens remain in local
+                      runtime settings and refresh server-side.
                     </div>
                   </div>
-                  <div style={{
-                    padding: '6px 10px',
-                    borderRadius: '999px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    backgroundColor: notionStatus?.connected ? 'rgba(72,187,120,0.18)' : 'rgba(160,174,192,0.14)',
-                    color: notionStatus?.connected ? '#9ae6b4' : '#cbd5e0',
-                    whiteSpace: 'nowrap',
-                  }}>
+                  <div
+                    className="workspace-pill"
+                    data-tone={notionStatus?.connected ? 'moss' : 'accent'}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
                     {notionStatusLabel}
                   </div>
                 </div>
 
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: '10px',
-                  marginBottom: '14px',
-                }}>
-                  <div style={{ color: '#cbd5e0', fontSize: '12px', lineHeight: 1.6 }}>
-                    <div style={{ color: '#718096' }}>Workspace</div>
-                    <div>{notionStatus?.workspace_name || 'Not connected'}</div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '16px',
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '18px',
+                      background: 'rgba(255, 255, 255, 0.58)',
+                      border: '1px solid rgba(46, 64, 54, 0.1)',
+                    }}
+                  >
+                    <div style={fieldLabelStyle}>Workspace</div>
+                    <div style={{ color: 'rgba(22, 22, 22, 0.76)', fontSize: '14px', lineHeight: 1.5 }}>
+                      {notionStatus?.workspace_name || 'Not connected'}
+                    </div>
                   </div>
-                  <div style={{ color: '#cbd5e0', fontSize: '12px', lineHeight: 1.6 }}>
-                    <div style={{ color: '#718096' }}>Connected At</div>
-                    <div>{notionStatus?.connected_at || '-'}</div>
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '18px',
+                      background: 'rgba(255, 255, 255, 0.58)',
+                      border: '1px solid rgba(46, 64, 54, 0.1)',
+                    }}
+                  >
+                    <div style={fieldLabelStyle}>Connected at</div>
+                    <div style={{ color: 'rgba(22, 22, 22, 0.76)', fontSize: '14px', lineHeight: 1.5 }}>
+                      {notionStatus?.connected_at || '-'}
+                    </div>
                   </div>
                 </div>
 
@@ -441,37 +509,45 @@ export default function AccountSettingsModal({
                     type="button"
                     onClick={handleConnectNotion}
                     disabled={connectingNotion}
+                    className="workspace-btn"
                     style={{
-                      padding: '10px 16px',
-                      borderRadius: '8px',
                       border: 'none',
-                      backgroundColor: '#2b6cb0',
-                      color: '#fff',
-                      fontSize: '14px',
+                      padding: '12px 16px',
+                      fontSize: '11px',
                       cursor: connectingNotion ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
+                      justifyContent: 'center',
+                      flex: '1 1 220px',
                     }}
                   >
                     <Link2 size={16} />
-                    {connectingNotion ? 'Connecting...' : notionStatus?.connected ? 'Reconnect Notion' : 'Connect Notion'}
+                    {connectingNotion
+                      ? 'Connecting...'
+                      : notionStatus?.connected
+                        ? 'Reconnect Notion'
+                        : 'Connect Notion'}
                   </button>
                   <button
                     type="button"
                     onClick={handleDisconnectNotion}
                     disabled={!notionStatus?.connected || disconnectingNotion}
+                    className="workspace-btn-secondary"
                     style={{
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      border: '1px solid #4a5568',
-                      backgroundColor: 'transparent',
-                      color: notionStatus?.connected ? '#fed7d7' : '#718096',
-                      fontSize: '14px',
-                      cursor: !notionStatus?.connected || disconnectingNotion ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
+                      border: '1px solid rgba(46, 64, 54, 0.15)',
+                      padding: '12px 16px',
+                      color: notionStatus?.connected ? '#2e4036' : 'rgba(22, 22, 22, 0.38)',
+                      fontSize: '11px',
+                      cursor:
+                        !notionStatus?.connected || disconnectingNotion
+                          ? 'not-allowed'
+                          : 'pointer',
+                      display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
+                      justifyContent: 'center',
+                      flex: '1 1 220px',
                     }}
                   >
                     <Unplug size={16} />
@@ -483,25 +559,27 @@ export default function AccountSettingsModal({
           )}
         </div>
 
-        <div style={{
-          padding: '16px 20px',
-          borderTop: '1px solid #2d3748',
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '10px',
-        }}>
+        <div
+          style={{
+            padding: '18px 20px',
+            borderTop: '1px solid rgba(46, 64, 54, 0.08)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '10px',
+            flexWrap: 'wrap-reverse',
+          }}
+        >
           <button
             type="button"
             onClick={onClose}
             disabled={saving}
+            className="workspace-btn-secondary"
             style={{
-              padding: '10px 18px',
-              borderRadius: '8px',
-              border: '1px solid #4a5568',
-              backgroundColor: 'transparent',
-              color: '#cbd5e0',
-              fontSize: '14px',
+              border: 'none',
+              padding: '12px 16px',
               cursor: saving ? 'not-allowed' : 'pointer',
+              fontSize: '11px',
+              flex: '1 1 160px',
             }}
           >
             Close
@@ -510,15 +588,13 @@ export default function AccountSettingsModal({
             type="button"
             onClick={handleSave}
             disabled={saving || loading}
+            className="workspace-btn"
             style={{
-              padding: '10px 18px',
-              borderRadius: '8px',
               border: 'none',
-              backgroundColor: saving ? '#4a5568' : '#f6ad55',
-              color: '#1a202c',
-              fontSize: '14px',
-              fontWeight: 600,
+              padding: '12px 16px',
               cursor: saving || loading ? 'not-allowed' : 'pointer',
+              fontSize: '11px',
+              flex: '1 1 200px',
             }}
           >
             {saving ? 'Saving...' : 'Save Keys'}
